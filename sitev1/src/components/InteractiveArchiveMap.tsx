@@ -55,49 +55,90 @@ export function InteractiveArchiveMap({
 
       try {
       // Initialize Leaflet map with MapLibre GL plugin
-      // Using Stadiamaps Stamen Toner Lite style URL
       const map = L.map(mapContainerRef.current, {
         center: [46.48926284644784, 11.332423975045913], // [lat, lng] format for Leaflet
         zoom: 13,
         zoomControl: true,
       });
 
-      // Add MapLibre GL layer with Stadiamaps style (using API key)
-      const maplibreLayer = L.maplibreGL({
-        style: 'https://tiles.stadiamaps.com/styles/stamen_toner.json?api_key=cd9544e6-1995-405a-8e70-b510018ec973',
-      }).addTo(map);
+      // Load Stadiamaps style JSON and add API key to tile sources
+      const apiKey = 'cd9544e6-1995-405a-8e70-b510018ec973';
+      const styleUrl = `https://tiles.stadiamaps.com/styles/stamen_toner.json?api_key=${apiKey}`;
       
-      // Set attribution separately
-      map.attributionControl.addAttribution('&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors');
-
-      // Wait for map to load
-      map.whenReady(() => {
-        console.log('Map loaded successfully');
-        setMapLoaded(true);
-        setMapError(null);
-        
-        // Get the underlying MapLibre map instance to check if tiles are loading
-        const maplibreMap = maplibreLayer.getMaplibreMap();
-        if (maplibreMap) {
-          maplibreMap.on('load', () => {
-            console.log('MapLibre GL layer loaded');
-          });
-          
-          maplibreMap.on('error', (e: any) => {
-            if (e.error) {
-              const errorMsg = (e.error.message || '').toLowerCase();
-              const errorUrl = (e.error.url || '').toLowerCase();
-              
-              // Check if it's a Stadiamaps 401 error (API key may be required)
-              if ((errorUrl.includes('stadiamaps') || errorMsg.includes('stadiamaps')) && 
-                  (errorMsg.includes('401') || errorMsg.includes('unauthorized'))) {
-                console.warn('Stadiamaps API key may be required:', e.error.url);
-                setMapError('Map tiles require API key. Please check Stadiamaps configuration.');
+      fetch(styleUrl)
+        .then(response => response.json())
+        .then(style => {
+          // Add API key to all tile sources in the style
+          if (style.sources) {
+            Object.keys(style.sources).forEach(sourceId => {
+              const source = style.sources[sourceId];
+              if (source.type === 'vector' && source.tiles) {
+                // Add API key to each tile URL
+                source.tiles = source.tiles.map((tileUrl: string) => {
+                  if (!tileUrl.includes('api_key=')) {
+                    return tileUrl.includes('?') 
+                      ? `${tileUrl}&api_key=${apiKey}`
+                      : `${tileUrl}?api_key=${apiKey}`;
+                  }
+                  return tileUrl;
+                });
+              } else if (source.type === 'raster' && source.tiles) {
+                source.tiles = source.tiles.map((tileUrl: string) => {
+                  if (!tileUrl.includes('api_key=')) {
+                    return tileUrl.includes('?') 
+                      ? `${tileUrl}&api_key=${apiKey}`
+                      : `${tileUrl}?api_key=${apiKey}`;
+                  }
+                  return tileUrl;
+                });
               }
+            });
+          }
+          
+          // Add MapLibre GL layer with modified style
+          const maplibreLayer = L.maplibreGL({
+            style: style,
+          }).addTo(map);
+          
+          // Set attribution separately
+          map.attributionControl.addAttribution('&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors');
+          
+          // Store maplibreLayer for error handling
+          (map as any)._maplibreLayer = maplibreLayer;
+          
+          // Wait for map to load
+          map.whenReady(() => {
+            console.log('Map loaded successfully');
+            setMapLoaded(true);
+            setMapError(null);
+            
+            // Get the underlying MapLibre map instance to check if tiles are loading
+            const maplibreMap = maplibreLayer.getMaplibreMap();
+            if (maplibreMap) {
+              maplibreMap.on('load', () => {
+                console.log('MapLibre GL layer loaded');
+              });
+              
+              maplibreMap.on('error', (e: any) => {
+                if (e.error) {
+                  const errorMsg = (e.error.message || '').toLowerCase();
+                  const errorUrl = (e.error.url || '').toLowerCase();
+                  
+                  // Check if it's a Stadiamaps 401 error
+                  if ((errorUrl.includes('stadiamaps') || errorMsg.includes('stadiamaps')) && 
+                      (errorMsg.includes('401') || errorMsg.includes('unauthorized'))) {
+                    console.warn('Stadiamaps API key error:', e.error.url);
+                    setMapError('Map tiles require API key. Please check Stadiamaps configuration.');
+                  }
+                }
+              });
             }
           });
-        }
-      });
+        })
+        .catch(error => {
+          console.error('Error loading map style:', error);
+          setMapError('Failed to load map style. Please check your API key.');
+        });
 
       // Handle Leaflet map errors
       map.on('tileerror', (error: any) => {
