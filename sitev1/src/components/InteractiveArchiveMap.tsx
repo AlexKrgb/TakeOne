@@ -90,20 +90,23 @@ export function InteractiveArchiveMap({
         bearing: 0,
       });
 
-      // Handle map errors - ignore tile loading errors, only show critical errors
-      map.on('error', (e) => {
-        // Ignore all errors related to tiles or external resources
-        // The map will retry automatically
-        if (e.error && e.error.message) {
-          const errorMsg = e.error.message.toLowerCase();
+      // Handle map errors - completely ignore Stadiamaps errors and tile loading errors
+      map.on('error', (e: any) => {
+        if (e.error) {
+          const errorMsg = (e.error.message || '').toLowerCase();
+          const errorUrl = (e.error.url || '').toLowerCase();
+          
+          // Completely ignore Stadiamaps errors (they're from VenueMap component)
+          if (errorUrl.includes('stadiamaps') || errorMsg.includes('stadiamaps')) {
+            return; // Silently ignore
+          }
+          
           // Only show critical WebGL errors
           if (errorMsg.includes('webgl context') || errorMsg.includes('webgl not supported')) {
             console.error('Critical WebGL error:', e.error.message);
             setMapError(`WebGL not supported: ${e.error.message}`);
-          } else {
-            // Log but don't show - these are usually recoverable
-            console.warn('Map error (ignored):', e.error.message);
           }
+          // All other errors are ignored - map will retry automatically
         }
       });
 

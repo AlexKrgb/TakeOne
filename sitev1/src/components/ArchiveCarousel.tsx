@@ -51,7 +51,7 @@ const events: Event[] = [
     year: 2025,
     date: 'April 15, 2025',
     sets: 8,
-    poster: 'https://images.unsplash.com/photo-1571266028243-d220c6e87a29?w=800',
+    poster: 'https://i.imgur.com/poMNsgj.jpg',
     venue: 'Zoona',
     venueAddress: 'Via Duca d\'Aosta, Bolzano',
     description: 'Deep house and minimal techno took over the dance floor for an intimate night of pure rhythm.',
