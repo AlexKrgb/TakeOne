@@ -53,31 +53,32 @@ export function InteractiveArchiveMap({
       }
 
       try {
-      // Use OpenStreetMap raster tiles ONLY - explicit inline style to avoid any external style loading
+      // Use Stadiamaps Static Maps API with Stamen Toner Lite style
+      // Format: https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}.png
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
         style: {
           version: 8,
           sources: {
-            'osm-tiles': {
+            'stadiamaps-tiles': {
               type: 'raster',
               tiles: [
-                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}.png',
               ],
               tileSize: 256,
-              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+              attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
             },
           },
           layers: [
             {
-              id: 'osm-layer',
+              id: 'stadiamaps-layer',
               type: 'raster',
-              source: 'osm-tiles',
+              source: 'stadiamaps-tiles',
               minzoom: 0,
-              maxzoom: 19,
+              maxzoom: 20,
             },
           ],
-          // No glyphs - we don't need text labels for raster tiles
+          // No glyphs needed for raster tiles
           glyphs: '',
         },
         center: [11.332423975045913, 46.48926284644784], // [lng, lat] format
@@ -87,21 +88,20 @@ export function InteractiveArchiveMap({
         bearing: 0,
       });
       
-      console.log('Map initialized with OSM tiles configuration');
+      console.log('Map initialized with Stadiamaps tiles configuration');
 
-      // Handle map errors - completely ignore Stadiamaps errors and tile loading errors
+      // Handle map errors - check for Stadiamaps API key issues
       map.on('error', (e: any) => {
         if (e.error) {
           const errorMsg = (e.error.message || '').toLowerCase();
           const errorUrl = (e.error.url || '').toLowerCase();
           
-          // Completely ignore Stadiamaps errors (they're from VenueMap component)
-          if (errorUrl.includes('stadiamaps') || errorMsg.includes('stadiamaps')) {
-            return; // Silently ignore
-          }
-          
-          // Only show critical WebGL errors
-          if (errorMsg.includes('webgl context') || errorMsg.includes('webgl not supported')) {
+          // Check if it's a Stadiamaps 401 error (API key may be required)
+          if ((errorUrl.includes('stadiamaps') || errorMsg.includes('stadiamaps')) && 
+              (errorMsg.includes('401') || errorMsg.includes('unauthorized'))) {
+            console.warn('Stadiamaps API key may be required:', e.error.url);
+            // Don't show error immediately - some Stadiamaps endpoints don't require auth
+          } else if (errorMsg.includes('webgl context') || errorMsg.includes('webgl not supported')) {
             console.error('Critical WebGL error:', e.error.message);
             setMapError(`WebGL not supported: ${e.error.message}`);
           }
@@ -119,18 +119,14 @@ export function InteractiveArchiveMap({
         const style = map.getStyle();
         console.log('Map style sources:', Object.keys(style?.sources || {}));
         
-        // Check if OSM tiles source exists
-        if (style?.sources && style.sources['osm-tiles']) {
-          console.log('OSM tiles source found, tiles should load');
+        // Check if Stadiamaps tiles source exists
+        if (style?.sources && style.sources['stadiamaps-tiles']) {
+          console.log('Stadiamaps tiles source found, tiles should load');
         } else {
-          console.error('OSM tiles source NOT found in style!');
+          console.error('Stadiamaps tiles source NOT found in style!');
         }
         
-        // Apply dark filter to OSM tiles using CSS
-        const mapCanvas = map.getCanvasContainer();
-        if (mapCanvas) {
-          mapCanvas.style.filter = 'invert(1) hue-rotate(180deg) brightness(0.7) contrast(1.2)';
-        }
+        // Stamen Toner Lite is already dark, no filter needed
         
         // Resize map to ensure it renders correctly after a short delay
         setTimeout(() => {
@@ -141,10 +137,10 @@ export function InteractiveArchiveMap({
         }, 100);
       });
 
-      // Listen for source data loading - track OSM tile loading specifically
+      // Listen for source data loading - track Stadiamaps tile loading
       map.on('sourcedata', (e: any) => {
-        if (e.sourceId === 'osm-tiles') {
-          console.log('OSM tiles source event:', {
+        if (e.sourceId === 'stadiamaps-tiles') {
+          console.log('Stadiamaps tiles source event:', {
             sourceId: e.sourceId,
             isSourceLoaded: e.isSourceLoaded,
             dataType: e.dataType,
@@ -155,8 +151,8 @@ export function InteractiveArchiveMap({
       
       // Also listen for data events to see what tiles are being requested
       map.on('data', (e: any) => {
-        if (e.dataType === 'source' && e.sourceId === 'osm-tiles') {
-          console.log('OSM source data loaded:', e.isSourceLoaded);
+        if (e.dataType === 'source' && e.sourceId === 'stadiamaps-tiles') {
+          console.log('Stadiamaps source data loaded:', e.isSourceLoaded);
         }
       });
 
