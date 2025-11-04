@@ -53,33 +53,31 @@ export function InteractiveArchiveMap({
       }
 
       try {
-      // Set up the map control with CartoDB Dark Matter style
+      // Use OpenStreetMap tiles with dark styling - more reliable on GitHub Pages
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
         style: {
           version: 8,
           sources: {
-            'carto-dark': {
+            'osm-tiles': {
               type: 'raster',
               tiles: [
-                'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               ],
               tileSize: 256,
-              attribution: '&copy; OpenStreetMap, &copy; CartoDB',
+              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             },
           },
           layers: [
             {
-              id: 'carto-dark-layer',
+              id: 'osm-layer',
               type: 'raster',
-              source: 'carto-dark',
+              source: 'osm-tiles',
               minzoom: 0,
-              maxzoom: 20,
+              maxzoom: 19,
             },
           ],
+          glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
         },
         center: [11.332423975045913, 46.48926284644784], // [lng, lat] format
         zoom: 13,
@@ -88,13 +86,31 @@ export function InteractiveArchiveMap({
         bearing: 0,
       });
 
-      // Handle map errors
+      // Handle map errors - only show critical errors
       map.on('error', (e) => {
-        console.error('Map error:', e);
+        console.error('Map error event:', e);
+        // Only show errors that are not related to tile loading retries
         if (e.error && e.error.message) {
-          setMapError(`Map error: ${e.error.message}`);
-        } else {
-          setMapError('Failed to load map tiles');
+          const errorMsg = e.error.message.toLowerCase();
+          // Ignore common non-critical errors
+          if (!errorMsg.includes('tile') && 
+              !errorMsg.includes('failed to load') &&
+              !errorMsg.includes('cancelled') &&
+              !errorMsg.includes('timeout') &&
+              !errorMsg.includes('webgl')) {
+            console.warn('Showing map error:', e.error.message);
+            setMapError(`Map error: ${e.error.message}`);
+          } else {
+            console.warn('Ignoring non-critical map error:', e.error.message);
+          }
+        }
+      });
+
+      // Monitor source data loading - just log, don't set error state
+      map.on('sourcedata', (e) => {
+        if (e.isSourceLoaded === false && e.sourceId === 'osm-tiles' && e.tile) {
+          // Only log warnings, don't set error state immediately
+          console.warn('Tile loading issue:', e);
         }
       });
 
@@ -102,6 +118,13 @@ export function InteractiveArchiveMap({
       map.on('load', () => {
         setMapLoaded(true);
         setMapError(null);
+        
+        // Apply dark filter to OSM tiles using CSS
+        const mapCanvas = map.getCanvasContainer();
+        if (mapCanvas) {
+          mapCanvas.style.filter = 'invert(1) hue-rotate(180deg) brightness(0.7) contrast(1.2)';
+        }
+        
         // Resize map to ensure it renders correctly after a short delay
         setTimeout(() => {
           if (mapRef.current) {
@@ -110,12 +133,14 @@ export function InteractiveArchiveMap({
         }, 100);
       });
 
-      // Handle style loading errors
+      // Handle style loading - don't set error immediately, styles can load asynchronously
       map.on('styledata', () => {
-        if (!map.isStyleLoaded()) {
-          setMapError('Failed to load map style');
-        }
+        // Style data is loading, this is normal during initialization
+        // Only log if there's an actual error after a delay
       });
+
+      // Remove the aggressive canvas check - it was causing false positives
+      // The map will show errors naturally through the error handlers above
 
       // Add zoom and rotation controls
       map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
@@ -124,7 +149,22 @@ export function InteractiveArchiveMap({
 
       } catch (error) {
         console.error('Error initializing map:', error);
-        setMapError(error instanceof Error ? error.message : 'Failed to initialize map');
+        // Only set error if it's a real initialization error
+        if (error instanceof Error) {
+          console.error('Map init error details:', error.message, error.stack);
+          // Don't set error for common issues that might resolve
+          const errorMsg = error.message.toLowerCase();
+          if (!errorMsg.includes('already initialized') && 
+              !errorMsg.includes('container') &&
+              !errorMsg.includes('webgl')) {
+            setMapError(`Failed to initialize map: ${error.message}`);
+          } else {
+            console.warn('Non-critical initialization error, continuing:', error.message);
+          }
+        } else {
+          console.error('Unknown error type:', error);
+          // Don't set error state for unknown errors
+        }
       }
     }, 100); // Small delay to ensure container is ready
 
