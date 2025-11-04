@@ -33,6 +33,7 @@ export function InteractiveArchiveMap({
 }: InteractiveArchiveMapProps) {
   const [selectedEvent, setSelectedEvent] = useState<PastEvent | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<{ [key: string]: maplibregl.Marker }>({});
@@ -41,7 +42,17 @@ export function InteractiveArchiveMap({
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    try {
+    // Use a small delay to ensure container is rendered
+    const initTimeout = setTimeout(() => {
+      if (!mapContainerRef.current) return;
+
+      // Check if container has dimensions
+      const container = mapContainerRef.current;
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+        console.warn('Map container has no dimensions, attempting to initialize anyway...');
+      }
+
+      try {
       // Set up the map control with CartoDB Dark Matter style
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
@@ -72,11 +83,38 @@ export function InteractiveArchiveMap({
         },
         center: [11.332423975045913, 46.48926284644784], // [lng, lat] format
         zoom: 13,
+        maxPitch: 0,
+        pitch: 0,
+        bearing: 0,
+      });
+
+      // Handle map errors
+      map.on('error', (e) => {
+        console.error('Map error:', e);
+        if (e.error && e.error.message) {
+          setMapError(`Map error: ${e.error.message}`);
+        } else {
+          setMapError('Failed to load map tiles');
+        }
       });
 
       // Wait for map to load
       map.on('load', () => {
         setMapLoaded(true);
+        setMapError(null);
+        // Resize map to ensure it renders correctly after a short delay
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.resize();
+          }
+        }, 100);
+      });
+
+      // Handle style loading errors
+      map.on('styledata', () => {
+        if (!map.isStyleLoaded()) {
+          setMapError('Failed to load map style');
+        }
       });
 
       // Add zoom and rotation controls
@@ -84,17 +122,37 @@ export function InteractiveArchiveMap({
 
       mapRef.current = map;
 
-      // Clean up on unmount
-      return () => {
-        if (mapRef.current) {
-          mapRef.current.remove();
-          mapRef.current = null;
-        }
-      };
-    } catch (error) {
-      console.error('Error initializing map:', error);
-    }
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        setMapError(error instanceof Error ? error.message : 'Failed to initialize map');
+      }
+    }, 100); // Small delay to ensure container is ready
+
+    // Clean up on unmount
+    return () => {
+      clearTimeout(initTimeout);
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
   }, []);
+
+  // Handle window resize
+  useEffect(() => {
+    if (!mapLoaded) return;
+
+    const handleResize = () => {
+      if (mapRef.current) {
+        mapRef.current.resize();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [mapLoaded]);
 
   // Add/update markers when events change
   useEffect(() => {
@@ -275,11 +333,36 @@ export function InteractiveArchiveMap({
       </div>
 
       {/* Loading indicator */}
-      {!mapLoaded && (
+      {!mapLoaded && !mapError && (
         <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
           <div className="flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-[#FCD478] border-t-transparent rounded-full animate-spin"></div>
             <div className="text-white text-xl">Loading map...</div>
+          </div>
+        </div>
+      )}
+
+      {/* Error indicator */}
+      {mapError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+          <div className="flex flex-col items-center gap-4 px-4">
+            <div className="text-red-400 text-xl text-center">Map failed to load</div>
+            <div className="text-white/60 text-sm text-center max-w-md">{mapError}</div>
+            <button
+              onClick={() => {
+                setMapError(null);
+                setMapLoaded(false);
+                if (mapRef.current) {
+                  mapRef.current.remove();
+                  mapRef.current = null;
+                }
+                // Force re-render to retry initialization
+                window.location.reload();
+              }}
+              className="px-4 py-2 bg-[#FCD478] text-black rounded-lg hover:bg-[#FCD478]/80 transition-colors"
+            >
+              Retry
+            </button>
           </div>
         </div>
       )}
