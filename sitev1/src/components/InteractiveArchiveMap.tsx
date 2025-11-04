@@ -54,6 +54,7 @@ export function InteractiveArchiveMap({
 
       try {
       // Use OpenStreetMap tiles with dark styling - more reliable on GitHub Pages
+      // Using multiple tile servers for better reliability
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
         style: {
@@ -63,6 +64,9 @@ export function InteractiveArchiveMap({
               type: 'raster',
               tiles: [
                 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
               ],
               tileSize: 256,
               attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -86,31 +90,26 @@ export function InteractiveArchiveMap({
         bearing: 0,
       });
 
-      // Handle map errors - be very conservative about showing errors
+      // Handle map errors - ignore tile loading errors, only show critical errors
       map.on('error', (e) => {
-        console.error('Map error event:', e);
-        // Only show errors if they're truly critical - most errors are non-critical
+        // Ignore all errors related to tiles or external resources
+        // The map will retry automatically
         if (e.error && e.error.message) {
           const errorMsg = e.error.message.toLowerCase();
-          // Ignore almost all errors - map will retry automatically
+          // Only show critical WebGL errors
           if (errorMsg.includes('webgl context') || errorMsg.includes('webgl not supported')) {
             console.error('Critical WebGL error:', e.error.message);
             setMapError(`WebGL not supported: ${e.error.message}`);
+          } else {
+            // Log but don't show - these are usually recoverable
+            console.warn('Map error (ignored):', e.error.message);
           }
-          // Don't set error for anything else - let the map retry
-        }
-      });
-
-      // Monitor source data loading - just log, don't set error state
-      map.on('sourcedata', (e) => {
-        if (e.isSourceLoaded === false && e.sourceId === 'osm-tiles' && e.tile) {
-          // Only log warnings, don't set error state immediately
-          console.warn('Tile loading issue:', e);
         }
       });
 
       // Wait for map to load
       map.on('load', () => {
+        console.log('Map loaded successfully');
         setMapLoaded(true);
         setMapError(null);
         
@@ -124,8 +123,16 @@ export function InteractiveArchiveMap({
         setTimeout(() => {
           if (mapRef.current) {
             mapRef.current.resize();
+            console.log('Map resized');
           }
         }, 100);
+      });
+
+      // Listen for source data loading
+      map.on('sourcedata', (e: any) => {
+        if (e.dataType === 'source' && e.sourceId === 'osm-tiles') {
+          console.log('OSM tiles source status:', e.isSourceLoaded ? 'loaded' : 'loading');
+        }
       });
 
       // Handle style loading - don't set error immediately, styles can load asynchronously
