@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import L from 'leaflet';
+import '@maplibre/maplibre-gl-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 export interface PastEvent {
   id: string;
@@ -35,8 +36,8 @@ export function InteractiveArchiveMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<{ [key: string]: maplibregl.Marker }>({});
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<{ [key: string]: L.Marker }>({});
 
   // Initialize map
   useEffect(() => {
@@ -53,120 +54,56 @@ export function InteractiveArchiveMap({
       }
 
       try {
-      // Use Stadiamaps Static Maps API with Stamen Toner Lite style
-      // Format: https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}.png
-      const map = new maplibregl.Map({
-        container: mapContainerRef.current,
-        style: {
-          version: 8,
-          sources: {
-            'stadiamaps-tiles': {
-              type: 'raster',
-              tiles: [
-                'https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}.png',
-              ],
-              tileSize: 256,
-              attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
-            },
-          },
-          layers: [
-            {
-              id: 'stadiamaps-layer',
-              type: 'raster',
-              source: 'stadiamaps-tiles',
-              minzoom: 0,
-              maxzoom: 20,
-            },
-          ],
-          // No glyphs needed for raster tiles
-          glyphs: '',
-        },
-        center: [11.332423975045913, 46.48926284644784], // [lng, lat] format
+      // Initialize Leaflet map with MapLibre GL plugin
+      // Using Stadiamaps Stamen Toner Lite style URL
+      const map = L.map(mapContainerRef.current, {
+        center: [46.48926284644784, 11.332423975045913], // [lat, lng] format for Leaflet
         zoom: 13,
-        maxPitch: 0,
-        pitch: 0,
-        bearing: 0,
+        zoomControl: true,
       });
-      
-      console.log('Map initialized with Stadiamaps tiles configuration');
 
-      // Handle map errors - check for Stadiamaps API key issues
-      map.on('error', (e: any) => {
-        if (e.error) {
-          const errorMsg = (e.error.message || '').toLowerCase();
-          const errorUrl = (e.error.url || '').toLowerCase();
-          
-          // Check if it's a Stadiamaps 401 error (API key may be required)
-          if ((errorUrl.includes('stadiamaps') || errorMsg.includes('stadiamaps')) && 
-              (errorMsg.includes('401') || errorMsg.includes('unauthorized'))) {
-            console.warn('Stadiamaps API key may be required:', e.error.url);
-            // Don't show error immediately - some Stadiamaps endpoints don't require auth
-          } else if (errorMsg.includes('webgl context') || errorMsg.includes('webgl not supported')) {
-            console.error('Critical WebGL error:', e.error.message);
-            setMapError(`WebGL not supported: ${e.error.message}`);
-          }
-          // All other errors are ignored - map will retry automatically
-        }
-      });
+      // Add MapLibre GL layer with Stadiamaps style (using API key)
+      const maplibreLayer = L.maplibreGL({
+        style: 'https://tiles.stadiamaps.com/styles/stamen_toner.json?api_key=cd9544e6-1995-405a-8e70-b510018ec973',
+      }).addTo(map);
+      
+      // Set attribution separately
+      map.attributionControl.addAttribution('&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors');
 
       // Wait for map to load
-      map.on('load', () => {
+      map.whenReady(() => {
         console.log('Map loaded successfully');
         setMapLoaded(true);
         setMapError(null);
         
-        // Force OSM tiles to load by checking if they're actually loading
-        const style = map.getStyle();
-        console.log('Map style sources:', Object.keys(style?.sources || {}));
-        
-        // Check if Stadiamaps tiles source exists
-        if (style?.sources && style.sources['stadiamaps-tiles']) {
-          console.log('Stadiamaps tiles source found, tiles should load');
-        } else {
-          console.error('Stadiamaps tiles source NOT found in style!');
-        }
-        
-        // Stamen Toner Lite is already dark, no filter needed
-        
-        // Resize map to ensure it renders correctly after a short delay
-        setTimeout(() => {
-          if (mapRef.current) {
-            mapRef.current.resize();
-            console.log('Map resized');
-          }
-        }, 100);
-      });
-
-      // Listen for source data loading - track Stadiamaps tile loading
-      map.on('sourcedata', (e: any) => {
-        if (e.sourceId === 'stadiamaps-tiles') {
-          console.log('Stadiamaps tiles source event:', {
-            sourceId: e.sourceId,
-            isSourceLoaded: e.isSourceLoaded,
-            dataType: e.dataType,
-            tile: e.tile ? { x: e.tile.x, y: e.tile.y, z: e.tile.z } : null
+        // Get the underlying MapLibre map instance to check if tiles are loading
+        const maplibreMap = maplibreLayer.getMaplibreMap();
+        if (maplibreMap) {
+          maplibreMap.on('load', () => {
+            console.log('MapLibre GL layer loaded');
+          });
+          
+          maplibreMap.on('error', (e: any) => {
+            if (e.error) {
+              const errorMsg = (e.error.message || '').toLowerCase();
+              const errorUrl = (e.error.url || '').toLowerCase();
+              
+              // Check if it's a Stadiamaps 401 error (API key may be required)
+              if ((errorUrl.includes('stadiamaps') || errorMsg.includes('stadiamaps')) && 
+                  (errorMsg.includes('401') || errorMsg.includes('unauthorized'))) {
+                console.warn('Stadiamaps API key may be required:', e.error.url);
+                setMapError('Map tiles require API key. Please check Stadiamaps configuration.');
+              }
+            }
           });
         }
       });
-      
-      // Also listen for data events to see what tiles are being requested
-      map.on('data', (e: any) => {
-        if (e.dataType === 'source' && e.sourceId === 'stadiamaps-tiles') {
-          console.log('Stadiamaps source data loaded:', e.isSourceLoaded);
-        }
+
+      // Handle Leaflet map errors
+      map.on('tileerror', (error: any) => {
+        console.warn('Tile error:', error);
+        // Don't set error state - Leaflet will retry automatically
       });
-
-      // Handle style loading - don't set error immediately, styles can load asynchronously
-      map.on('styledata', () => {
-        // Style data is loading, this is normal during initialization
-        // Only log if there's an actual error after a delay
-      });
-
-      // Remove the aggressive canvas check - it was causing false positives
-      // The map will show errors naturally through the error handlers above
-
-      // Add zoom and rotation controls
-      map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 
       mapRef.current = map;
 
@@ -198,11 +135,11 @@ export function InteractiveArchiveMap({
 
   // Handle window resize
   useEffect(() => {
-    if (!mapLoaded) return;
+    if (!mapLoaded || !mapRef.current) return;
 
     const handleResize = () => {
       if (mapRef.current) {
-        mapRef.current.resize();
+        mapRef.current.invalidateSize();
       }
     };
 
@@ -222,7 +159,7 @@ export function InteractiveArchiveMap({
       // Remove existing markers
       Object.values(markersRef.current).forEach(marker => {
         try {
-          marker.remove();
+          map.removeLayer(marker);
         } catch (e) {
           // Ignore errors when removing markers
         }
@@ -231,76 +168,90 @@ export function InteractiveArchiveMap({
 
       // Add new markers
       events.forEach((event) => {
-      // Create custom marker element
-      const el = document.createElement('div');
-      el.className = 'custom-marker';
-      el.style.width = '24px';
-      el.style.height = '24px';
-      el.style.cursor = 'pointer';
-      el.style.position = 'relative';
+        // Create custom marker element
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        el.style.width = '24px';
+        el.style.height = '24px';
+        el.style.cursor = 'pointer';
+        el.style.position = 'relative';
 
-      // Glow layer
-      const glow = document.createElement('div');
-      glow.className = 'marker-glow';
-      glow.style.position = 'absolute';
-      glow.style.width = '40px';
-      glow.style.height = '40px';
-      glow.style.borderRadius = '50%';
-      glow.style.backgroundColor = colorMap[event.color];
-      glow.style.opacity = '0.6';
-      glow.style.filter = 'blur(12px)';
-      glow.style.left = '50%';
-      glow.style.top = '50%';
-      glow.style.transform = 'translate(-50%, -50%)';
-      glow.style.pointerEvents = 'none';
+        // Glow layer
+        const glow = document.createElement('div');
+        glow.className = 'marker-glow';
+        glow.style.position = 'absolute';
+        glow.style.width = '40px';
+        glow.style.height = '40px';
+        glow.style.borderRadius = '50%';
+        glow.style.backgroundColor = colorMap[event.color];
+        glow.style.opacity = '0.6';
+        glow.style.filter = 'blur(12px)';
+        glow.style.left = '50%';
+        glow.style.top = '50%';
+        glow.style.transform = 'translate(-50%, -50%)';
+        glow.style.pointerEvents = 'none';
 
-      // Marker circle
-      const circle = document.createElement('div');
-      circle.className = 'marker-circle';
-      circle.style.width = '18px';
-      circle.style.height = '18px';
-      circle.style.borderRadius = '50%';
-      circle.style.backgroundColor = colorMap[event.color];
-      circle.style.border = '2px solid white';
-      circle.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-      circle.style.position = 'relative';
-      circle.style.left = '50%';
-      circle.style.top = '50%';
-      circle.style.transform = 'translate(-50%, -50%)';
-      circle.style.transition = 'all 0.3s ease';
+        // Marker circle
+        const circle = document.createElement('div');
+        circle.className = 'marker-circle';
+        circle.style.width = '18px';
+        circle.style.height = '18px';
+        circle.style.borderRadius = '50%';
+        circle.style.backgroundColor = colorMap[event.color];
+        circle.style.border = '2px solid white';
+        circle.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+        circle.style.position = 'relative';
+        circle.style.left = '50%';
+        circle.style.top = '50%';
+        circle.style.transform = 'translate(-50%, -50%)';
+        circle.style.transition = 'all 0.3s ease';
 
-      el.appendChild(glow);
-      el.appendChild(circle);
+        el.appendChild(glow);
+        el.appendChild(circle);
 
-      // Create marker
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([event.position.lng, event.position.lat])
-        .addTo(map);
+        // Create Leaflet marker
+        const marker = L.marker([event.position.lat, event.position.lng], {
+          icon: L.divIcon({
+            className: 'custom-marker-div',
+            html: el.outerHTML,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          }),
+        }).addTo(map);
 
-      // Add click handler
-      el.addEventListener('click', () => {
-        handleEventClick(event);
-      });
+        // Get the actual DOM element that Leaflet created
+        const markerElement = marker.getElement();
+        if (markerElement) {
+          const circle = markerElement.querySelector('.marker-circle') as HTMLElement;
+          const glow = markerElement.querySelector('.marker-glow') as HTMLElement;
 
-      // Add hover effect
-      el.addEventListener('mouseenter', () => {
-        circle.style.width = '24px';
-        circle.style.height = '24px';
-        glow.style.width = '48px';
-        glow.style.height = '48px';
-        glow.style.opacity = '0.8';
-      });
+          // Add click handler
+          marker.on('click', () => {
+            handleEventClick(event);
+          });
 
-      el.addEventListener('mouseleave', () => {
-        const isSelected = selectedEventId === event.id || selectedEvent?.id === event.id;
-        if (!isSelected) {
-          circle.style.width = '18px';
-          circle.style.height = '18px';
-          glow.style.width = '40px';
-          glow.style.height = '40px';
-          glow.style.opacity = '0.6';
+          // Add hover effect
+          markerElement.addEventListener('mouseenter', () => {
+            if (circle && glow) {
+              circle.style.width = '24px';
+              circle.style.height = '24px';
+              glow.style.width = '48px';
+              glow.style.height = '48px';
+              glow.style.opacity = '0.8';
+            }
+          });
+
+          markerElement.addEventListener('mouseleave', () => {
+            const isSelected = selectedEventId === event.id || selectedEvent?.id === event.id;
+            if (!isSelected && circle && glow) {
+              circle.style.width = '18px';
+              circle.style.height = '18px';
+              glow.style.width = '40px';
+              glow.style.height = '40px';
+              glow.style.opacity = '0.6';
+            }
+          });
         }
-      });
 
         markersRef.current[event.id] = marker;
       });
@@ -314,24 +265,27 @@ export function InteractiveArchiveMap({
     try {
       Object.entries(markersRef.current).forEach(([eventId, marker]) => {
         try {
-          const el = marker.getElement();
-          const circle = el.querySelector('.marker-circle') as HTMLElement;
-          const glow = el.querySelector('.marker-glow') as HTMLElement;
-          
-          if (circle && glow) {
-            const isSelected = selectedEventId === eventId || selectedEvent?.id === eventId;
-            if (isSelected) {
-              circle.style.width = '24px';
-              circle.style.height = '24px';
-              glow.style.width = '48px';
-              glow.style.height = '48px';
-              glow.style.opacity = '0.8';
-            } else {
-              circle.style.width = '18px';
-              circle.style.height = '18px';
-              glow.style.width = '40px';
-              glow.style.height = '40px';
-              glow.style.opacity = '0.6';
+          // Access the element from the marker's internal element
+          const markerElement = (marker as any)._icon as HTMLElement;
+          if (markerElement) {
+            const circle = markerElement.querySelector('.marker-circle') as HTMLElement;
+            const glow = markerElement.querySelector('.marker-glow') as HTMLElement;
+            
+            if (circle && glow) {
+              const isSelected = selectedEventId === eventId || selectedEvent?.id === eventId;
+              if (isSelected) {
+                circle.style.width = '24px';
+                circle.style.height = '24px';
+                glow.style.width = '48px';
+                glow.style.height = '48px';
+                glow.style.opacity = '0.8';
+              } else {
+                circle.style.width = '18px';
+                circle.style.height = '18px';
+                glow.style.width = '40px';
+                glow.style.height = '40px';
+                glow.style.opacity = '0.6';
+              }
             }
           }
         } catch (e) {
@@ -350,10 +304,9 @@ export function InteractiveArchiveMap({
         const event = events.find((e) => e.id === selectedEventId);
         if (event) {
           setSelectedEvent(event);
-          mapRef.current.flyTo({
-            center: [event.position.lng, event.position.lat],
-            zoom: 15,
-            duration: 1000,
+          mapRef.current.flyTo([event.position.lat, event.position.lng], 15, {
+            animate: true,
+            duration: 1.0,
           });
         }
       } catch (error) {
@@ -370,10 +323,9 @@ export function InteractiveArchiveMap({
     // Fly to the event location
     if (mapRef.current && mapLoaded) {
       try {
-        mapRef.current.flyTo({
-          center: [event.position.lng, event.position.lat],
-          zoom: 15,
-          duration: 1000,
+        mapRef.current.flyTo([event.position.lat, event.position.lng], 15, {
+          animate: true,
+          duration: 1.0,
         });
       } catch (error) {
         console.error('Error flying to event:', error);
