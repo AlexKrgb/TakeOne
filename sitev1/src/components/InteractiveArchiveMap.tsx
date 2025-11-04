@@ -53,8 +53,7 @@ export function InteractiveArchiveMap({
       }
 
       try {
-      // Use OpenStreetMap tiles with dark styling - more reliable on GitHub Pages
-      // Using multiple tile servers for better reliability
+      // Use OpenStreetMap raster tiles ONLY - explicit inline style to avoid any external style loading
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
         style: {
@@ -64,9 +63,6 @@ export function InteractiveArchiveMap({
               type: 'raster',
               tiles: [
                 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
               ],
               tileSize: 256,
               attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -81,7 +77,8 @@ export function InteractiveArchiveMap({
               maxzoom: 19,
             },
           ],
-          glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+          // No glyphs - we don't need text labels for raster tiles
+          glyphs: '',
         },
         center: [11.332423975045913, 46.48926284644784], // [lng, lat] format
         zoom: 13,
@@ -89,6 +86,8 @@ export function InteractiveArchiveMap({
         pitch: 0,
         bearing: 0,
       });
+      
+      console.log('Map initialized with OSM tiles configuration');
 
       // Handle map errors - completely ignore Stadiamaps errors and tile loading errors
       map.on('error', (e: any) => {
@@ -116,6 +115,17 @@ export function InteractiveArchiveMap({
         setMapLoaded(true);
         setMapError(null);
         
+        // Force OSM tiles to load by checking if they're actually loading
+        const style = map.getStyle();
+        console.log('Map style sources:', Object.keys(style?.sources || {}));
+        
+        // Check if OSM tiles source exists
+        if (style?.sources && style.sources['osm-tiles']) {
+          console.log('OSM tiles source found, tiles should load');
+        } else {
+          console.error('OSM tiles source NOT found in style!');
+        }
+        
         // Apply dark filter to OSM tiles using CSS
         const mapCanvas = map.getCanvasContainer();
         if (mapCanvas) {
@@ -131,10 +141,22 @@ export function InteractiveArchiveMap({
         }, 100);
       });
 
-      // Listen for source data loading
+      // Listen for source data loading - track OSM tile loading specifically
       map.on('sourcedata', (e: any) => {
+        if (e.sourceId === 'osm-tiles') {
+          console.log('OSM tiles source event:', {
+            sourceId: e.sourceId,
+            isSourceLoaded: e.isSourceLoaded,
+            dataType: e.dataType,
+            tile: e.tile ? { x: e.tile.x, y: e.tile.y, z: e.tile.z } : null
+          });
+        }
+      });
+      
+      // Also listen for data events to see what tiles are being requested
+      map.on('data', (e: any) => {
         if (e.dataType === 'source' && e.sourceId === 'osm-tiles') {
-          console.log('OSM tiles source status:', e.isSourceLoaded ? 'loaded' : 'loading');
+          console.log('OSM source data loaded:', e.isSourceLoaded);
         }
       });
 
