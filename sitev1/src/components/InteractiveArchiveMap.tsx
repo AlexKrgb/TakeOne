@@ -73,26 +73,50 @@ export function InteractiveArchiveMap({
             Object.keys(style.sources).forEach(sourceId => {
               const source = style.sources[sourceId];
               if (source.type === 'vector' && source.tiles) {
-                // Add API key to each tile URL
+                // Add API key to each tile URL (handle both api_key and apikey params)
                 source.tiles = source.tiles.map((tileUrl: string) => {
-                  if (!tileUrl.includes('api_key=')) {
+                  if (!tileUrl.includes('api_key=') && !tileUrl.includes('apikey=')) {
                     return tileUrl.includes('?') 
                       ? `${tileUrl}&api_key=${apiKey}`
                       : `${tileUrl}?api_key=${apiKey}`;
+                  }
+                  // If URL already has api_key/apikey, ensure it's set correctly
+                  if (tileUrl.includes('apikey=')) {
+                    return tileUrl.replace(/apikey=[^&]*/, `api_key=${apiKey}`);
                   }
                   return tileUrl;
                 });
               } else if (source.type === 'raster' && source.tiles) {
                 source.tiles = source.tiles.map((tileUrl: string) => {
-                  if (!tileUrl.includes('api_key=')) {
+                  if (!tileUrl.includes('api_key=') && !tileUrl.includes('apikey=')) {
                     return tileUrl.includes('?') 
                       ? `${tileUrl}&api_key=${apiKey}`
                       : `${tileUrl}?api_key=${apiKey}`;
+                  }
+                  if (tileUrl.includes('apikey=')) {
+                    return tileUrl.replace(/apikey=[^&]*/, `api_key=${apiKey}`);
                   }
                   return tileUrl;
                 });
               }
             });
+          }
+          
+          // Also check sprite and glyph URLs if they exist
+          if (style.sprite && typeof style.sprite === 'string' && style.sprite.includes('stadiamaps')) {
+            if (!style.sprite.includes('api_key=') && !style.sprite.includes('apikey=')) {
+              style.sprite = style.sprite.includes('?') 
+                ? `${style.sprite}&api_key=${apiKey}`
+                : `${style.sprite}?api_key=${apiKey}`;
+            }
+          }
+          
+          if (style.glyphs && typeof style.glyphs === 'string' && style.glyphs.includes('stadiamaps')) {
+            if (!style.glyphs.includes('api_key=') && !style.glyphs.includes('apikey=')) {
+              style.glyphs = style.glyphs.includes('?') 
+                ? `${style.glyphs}&api_key=${apiKey}`
+                : `${style.glyphs}?api_key=${apiKey}`;
+            }
           }
           
           // Add MapLibre GL layer with modified style
