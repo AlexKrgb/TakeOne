@@ -86,23 +86,18 @@ export function InteractiveArchiveMap({
         bearing: 0,
       });
 
-      // Handle map errors - only show critical errors
+      // Handle map errors - be very conservative about showing errors
       map.on('error', (e) => {
         console.error('Map error event:', e);
-        // Only show errors that are not related to tile loading retries
+        // Only show errors if they're truly critical - most errors are non-critical
         if (e.error && e.error.message) {
           const errorMsg = e.error.message.toLowerCase();
-          // Ignore common non-critical errors
-          if (!errorMsg.includes('tile') && 
-              !errorMsg.includes('failed to load') &&
-              !errorMsg.includes('cancelled') &&
-              !errorMsg.includes('timeout') &&
-              !errorMsg.includes('webgl')) {
-            console.warn('Showing map error:', e.error.message);
-            setMapError(`Map error: ${e.error.message}`);
-          } else {
-            console.warn('Ignoring non-critical map error:', e.error.message);
+          // Ignore almost all errors - map will retry automatically
+          if (errorMsg.includes('webgl context') || errorMsg.includes('webgl not supported')) {
+            console.error('Critical WebGL error:', e.error.message);
+            setMapError(`WebGL not supported: ${e.error.message}`);
           }
+          // Don't set error for anything else - let the map retry
         }
       });
 
@@ -149,21 +144,16 @@ export function InteractiveArchiveMap({
 
       } catch (error) {
         console.error('Error initializing map:', error);
-        // Only set error if it's a real initialization error
+        // Don't set error state - let the map try to load anyway
+        // Most errors are recoverable or non-critical
         if (error instanceof Error) {
           console.error('Map init error details:', error.message, error.stack);
-          // Don't set error for common issues that might resolve
+          // Only set error for truly fatal errors
           const errorMsg = error.message.toLowerCase();
-          if (!errorMsg.includes('already initialized') && 
-              !errorMsg.includes('container') &&
-              !errorMsg.includes('webgl')) {
-            setMapError(`Failed to initialize map: ${error.message}`);
-          } else {
-            console.warn('Non-critical initialization error, continuing:', error.message);
+          if (errorMsg.includes('webgl context') || errorMsg.includes('webgl not supported')) {
+            setMapError(`WebGL not supported: ${error.message}`);
           }
-        } else {
-          console.error('Unknown error type:', error);
-          // Don't set error state for unknown errors
+          // For all other errors, just log and continue
         }
       }
     }, 100); // Small delay to ensure container is ready
