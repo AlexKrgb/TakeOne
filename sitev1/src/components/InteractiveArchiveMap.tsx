@@ -466,11 +466,22 @@ export function InteractiveArchiveMap({
                 <X className="w-4 h-4" />
               </button>
               <div className="flex gap-3">
-                <img
-                  src={selectedEvent.poster}
-                  alt={selectedEvent.name}
-                  className="w-20 h-20 object-cover rounded-lg"
-                />
+                {selectedEvent.poster.toLowerCase().endsWith('.mp4') || selectedEvent.poster.toLowerCase().endsWith('.webm') || selectedEvent.poster.toLowerCase().endsWith('.mov') ? (
+                  <video
+                    src={selectedEvent.poster}
+                    className="w-20 h-20 object-cover rounded-lg"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={selectedEvent.poster}
+                    alt={selectedEvent.name}
+                    className="w-20 h-20 object-cover rounded-lg"
+                  />
+                )}
                 <div className="flex-1 pr-6">
                   <h4 className="text-white mb-1">{selectedEvent.name}</h4>
                   <p className="text-sm text-white/60 mb-1">{selectedEvent.date}</p>

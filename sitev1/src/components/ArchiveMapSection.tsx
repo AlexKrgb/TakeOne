@@ -2,15 +2,19 @@ import { useState } from 'react';
 import { InteractiveArchiveMap, PastEvent } from './InteractiveArchiveMap';
 import { ArchiveEventList } from './ArchiveEventList';
 
-// Venue coordinates
+// Venue coordinates (updated with real positions)
 const venues = {
-  'goethe haus': { lat: 46.5005, lng: 11.3520 },
-  'miro club': { lat: 46.4989, lng: 11.3547 },
-  'castel roncolo': { lat: 46.5100, lng: 11.3600 },
-  'zoona': { lat: 46.4975, lng: 11.3565 },
+  'goethe haus': { lat: 46.4982351952385, lng: 11.352331620903415 },
+  'miro club': { lat: 46.49750405812552, lng: 11.352452835712338 },
+  'castel roncolo': { lat: 46.517748493962706, lng: 11.359062009518354 },
+  'zoona': { lat: 46.484823870426304, lng: 11.337192612674903 },
+  'astra brixen': { lat: 46.716610972149525, lng: 11.652391936557878 },
 };
 
-// Using the 6 existing archive events mapped to the 4 venues
+// Using the 8 archive events: 1 Castel Roncolo, 1 Goethe Haus, 3 Zoona, 3 Mirò
+// Event IDs mapped to folder names:
+// 1 -> event-miro-2, 2 -> event-zoona-2, 3 -> event-goethe-haus-1, 4 -> event-castel-roncolo-1
+// 5 -> event-miro-1, 6 -> event-zoona-1, 7 -> event-zoona-3, 8 -> event-miro-3
 const mockEvents: PastEvent[] = [
   {
     id: '1',
@@ -18,7 +22,7 @@ const mockEvents: PastEvent[] = [
     date: 'June 21, 2025',
     venue: 'Miro Club',
     position: venues['miro club'],
-    poster: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=400&fit=crop',
+    poster: '/images/events/event-miro-2/poster.webp',
     color: 'magenta',
   },
   {
@@ -27,7 +31,7 @@ const mockEvents: PastEvent[] = [
     date: 'April 15, 2025',
     venue: 'Zoona',
     position: venues['zoona'],
-    poster: 'https://images.unsplash.com/photo-1571266028243-d220c6e87a29?w=400&h=400&fit=crop',
+    poster: '/images/events/event-zoona-2/poster.webp',
     color: 'cyan',
   },
   {
@@ -36,7 +40,7 @@ const mockEvents: PastEvent[] = [
     date: 'January 1, 2025',
     venue: 'Goethe Haus',
     position: venues['goethe haus'],
-    poster: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=400&fit=crop',
+    poster: '/images/events/event-goethe-haus-1/poster.webp',
     color: 'yellow',
   },
   {
@@ -45,7 +49,7 @@ const mockEvents: PastEvent[] = [
     date: 'October 31, 2024',
     venue: 'Castel Roncolo',
     position: venues['castel roncolo'],
-    poster: 'https://images.unsplash.com/photo-1598387181032-a3103a2db5b3?w=400&h=400&fit=crop',
+    poster: '/images/events/event-castel-roncolo-1/poster.webp',
     color: 'magenta',
   },
   {
@@ -54,7 +58,7 @@ const mockEvents: PastEvent[] = [
     date: 'March 20, 2024',
     venue: 'Miro Club',
     position: venues['miro club'],
-    poster: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=400&fit=crop',
+    poster: '/images/events/event-miro-1/poster.webp',
     color: 'cyan',
   },
   {
@@ -63,8 +67,35 @@ const mockEvents: PastEvent[] = [
     date: 'December 15, 2023',
     venue: 'Zoona',
     position: venues['zoona'],
-    poster: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&h=400&fit=crop',
+    poster: '/images/events/event-zoona-1/poster.webp',
     color: 'yellow',
+  },
+  {
+    id: '7',
+    name: 'TakeONE X Unstructured',
+    date: 'September 19, 2025',
+    venue: 'Zoona',
+    position: venues['zoona'],
+    poster: '/images/events/event-zoona-3/poster.mp4',
+    color: 'magenta',
+  },
+  {
+    id: '8',
+    name: 'Mirò Event 3',
+    date: 'TBD',
+    venue: 'Miro Club',
+    position: venues['miro club'],
+    poster: '/images/events/event-miro-3/poster.webp',
+    color: 'cyan',
+  },
+  {
+    id: '9',
+    name: 'TakeONE X Astra TOOLBOX',
+    date: 'January 17, 2025',
+    venue: 'Astra Brixen',
+    position: venues['astra brixen'],
+    poster: '/images/events/event-astra-1/poster.webp',
+    color: 'magenta',
   },
 ];
 
@@ -78,8 +109,8 @@ export function ArchiveMapSection() {
     <div className="relative w-full h-screen min-h-[600px] bg-[#220b04]">
       {/* Desktop/Tablet Layout */}
       <div className="hidden md:flex h-full">
-        {/* Map - takes most of the width */}
-        <div className="flex-1 h-full">
+        {/* Map - 70% width */}
+        <div className="w-[70%] h-full">
           <InteractiveArchiveMap
             events={mockEvents}
             selectedEventId={activeEventId}

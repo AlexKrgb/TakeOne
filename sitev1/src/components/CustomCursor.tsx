@@ -35,7 +35,8 @@ export function CustomCursor() {
 
   return (
     <motion.div
-      className="fixed top-0 left-0 pointer-events-none z-[9999] mix-blend-difference"
+      className="fixed top-0 left-0 pointer-events-none mix-blend-difference"
+      style={{ zIndex: 2147483647 }}
       animate={{
         x: mousePosition.x - (isHovering ? 32 : 12),
         y: mousePosition.y - (isHovering ? 32 : 12),

@@ -4,6 +4,21 @@ import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Badge } from './ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+
+// Helper function to count DJs (handles both array of strings and comma-separated strings)
+const countDJs = (djs: string[] | undefined): number => {
+  if (!djs || !Array.isArray(djs)) return 0;
+  return djs.reduce((count, dj) => {
+    const trimmed = dj.trim();
+    if (trimmed === '') return count;
+    // If the string contains commas, split and count each DJ
+    if (trimmed.includes(',')) {
+      return count + trimmed.split(',').filter(d => d.trim() !== '').length;
+    }
+    return count + 1;
+  }, 0);
+};
 
 interface Venue {
   name: string;
@@ -28,17 +43,51 @@ interface VenueEvent {
 interface VenueMapProps {
   venues: Venue[];
   onVenueClick: (venueName: string) => void;
+  resetTrigger?: string;
+  closeOnCarouselView?: boolean;
 }
 
-export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
+export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselView }: VenueMapProps) {
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<VenueEvent | null>(null);
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState(0);
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  
+  // Close venue panel when leaving the archive section
+  useEffect(() => {
+    if (resetTrigger && resetTrigger !== 'archive') {
+      setSelectedVenue(null);
+      setSelectedEvent(null);
+      setSelectedGalleryIndex(0);
+      setSelectedEventId('');
+      setFullScreenImage(null);
+    }
+  }, [resetTrigger]);
+  
+  // Close venue panel when carousel comes into view
+  useEffect(() => {
+    if (closeOnCarouselView) {
+      setSelectedVenue(null);
+      setSelectedEvent(null);
+      setSelectedGalleryIndex(0);
+      setSelectedEventId('');
+    }
+  }, [closeOnCarouselView]);
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef<maplibregl.Marker[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
+
+  // Collect all events from all venues
+  const allEvents = venues.flatMap(venue => 
+    (venue.events || []).map(event => ({
+      ...event,
+      venueName: venue.name,
+      venuePosition: venue.position
+    }))
+  );
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
@@ -201,8 +250,63 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
     });
   }, [venues, onVenueClick, mapLoaded]);
 
+  // Handle event selection from dropdown
+  const handleEventSelect = (eventId: string) => {
+    const eventWithVenue = allEvents.find(e => e.id === eventId);
+    if (!eventWithVenue || !map.current) return;
+
+    // Find the venue that contains this event
+    const venue = venues.find(v => v.events?.some(e => e.id === eventId));
+    if (!venue) return;
+
+    // Center map on venue position
+    map.current.flyTo({
+      center: [venue.position.lng, venue.position.lat],
+      zoom: 15,
+      duration: 1000,
+      essential: true
+    });
+
+    // Open venue panel (not the event modal directly)
+    setSelectedVenue(venue);
+    setSelectedEvent(null);
+    setSelectedGalleryIndex(0);
+    setSelectedEventId('');
+  };
+
   return (
-    <div className="relative w-full h-[400px] rounded-2xl overflow-hidden border-2 border-[#2E1510] mb-8">
+    <div className="relative mx-auto rounded-2xl overflow-hidden border-2 border-[#2E1510] mb-8" style={{ width: '70%', maxWidth: '70%', height: '600px', minHeight: '600px' }}>
+      {/* Event Dropdown - positioned on the right */}
+      {!selectedEvent && (
+        <div className="absolute top-4 right-4" style={{ zIndex: 50 }}>
+          <Select 
+            value={selectedEventId} 
+            onValueChange={handleEventSelect}
+            onOpenChange={(open) => {
+              // Close venue panel when dropdown opens
+              if (open) {
+                setSelectedVenue(null);
+                setSelectedEvent(null);
+              }
+            }}
+          >
+            <SelectTrigger className="w-[250px] bg-white/95 backdrop-blur-sm border-2 border-[#2E1510] text-[#2E1510] hover:bg-white">
+              <SelectValue placeholder="Select an event..." />
+            </SelectTrigger>
+            <SelectContent className="max-h-[400px] overflow-y-auto" style={{ zIndex: 50 }}>
+            {allEvents.map((event) => (
+              <SelectItem key={event.id} value={event.id}>
+                <div className="flex flex-col">
+                  <span className="font-medium">{event.title}</span>
+                  <span className="text-xs text-gray-500">{event.venueName} - {event.date}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      )}
+
       {/* Map container */}
       <div ref={mapContainer} className="w-full h-full bg-gray-100" />
 
@@ -271,7 +375,7 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
                         <div className="flex-1 min-w-0">
                           <h5 className="text-white truncate mb-1">{event.title}</h5>
                           <p className="text-[#FCD478] text-xs mb-1">{event.date}</p>
-                          <p className="text-white/60 text-xs">{event.sets} Sets</p>
+                          <p className="text-white/60 text-xs">{countDJs(event.djs)} Sets</p>
                         </div>
                       </div>
                     </motion.div>
@@ -294,10 +398,11 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-[#220b04]/95 backdrop-blur-md"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#220b04]/95 backdrop-blur-md"
             onClick={() => {
               setSelectedEvent(null);
               setSelectedGalleryIndex(0);
+              setSelectedEventId('');
             }}
           >
             <motion.div
@@ -312,6 +417,7 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
                 onClick={() => {
                   setSelectedEvent(null);
                   setSelectedGalleryIndex(0);
+                  setSelectedEventId('');
                 }}
                 className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full bg-[#2E1510] text-white flex items-center justify-center hover:bg-[#ED2800] transition-colors"
                 aria-label="Close modal"
@@ -320,11 +426,27 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
               </button>
 
               <div className="p-8 md:p-12">
-                <div className="relative w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden mb-8 shadow-xl">
+                {/* Poster container - 650px max width */}
+                <div 
+                  className="relative mx-auto rounded-2xl overflow-hidden mb-8 shadow-xl bg-[#2E1510]/20 transition-all duration-300 ease-out cursor-pointer" 
+                  style={{ 
+                    maxWidth: '650px', 
+                    width: 'fit-content'
+                  }}
+                  onClick={() => setFullScreenImage(selectedEvent.poster)}
+                >
                   <ImageWithFallback
                     src={selectedEvent.poster}
                     alt={selectedEvent.title}
-                    className="w-full h-full object-cover"
+                    className="object-contain block"
+                    style={{ 
+                      maxWidth: '650px',
+                      maxHeight: '650px',
+                      width: 'auto',
+                      height: 'auto',
+                      display: 'block',
+                      pointerEvents: 'none'
+                    }}
                   />
                 </div>
 
@@ -346,7 +468,7 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
                     </div>
                     <div>
                       <p className="text-sm text-[#2E1510]/60 uppercase tracking-wide mb-1">Sets</p>
-                      <p className="text-xl text-[#2E1510]">{selectedEvent.sets} DJ Sets</p>
+                      <p className="text-xl text-[#2E1510]">{countDJs(selectedEvent.djs)} DJ Sets</p>
                     </div>
                   </div>
                   
@@ -367,11 +489,19 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
                 <div>
                   <h3 className="text-2xl text-[#2E1510] mb-4 lowercase">photo gallery</h3>
                   
-                  <div className="relative w-full h-[300px] md:h-[400px] rounded-xl overflow-hidden mb-4 shadow-lg">
+                  {/* Gallery container - 650px max width */}
+                  <div className="relative mx-auto rounded-xl overflow-hidden mb-4 shadow-lg bg-[#2E1510]/20" style={{ maxWidth: '650px', width: 'fit-content' }}>
                     <ImageWithFallback
                       src={selectedEvent.gallery[selectedGalleryIndex]}
                       alt={`${selectedEvent.title} gallery ${selectedGalleryIndex + 1}`}
-                      className="w-full h-full object-cover"
+                      className="object-contain block"
+                      style={{ 
+                        maxWidth: '650px',
+                        maxHeight: '650px',
+                        width: 'auto',
+                        height: 'auto',
+                        display: 'block'
+                      }}
                     />
                     
                     {selectedEvent.gallery.length > 1 && (
@@ -380,7 +510,7 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
                           onClick={() => setSelectedGalleryIndex((prev) => 
                             prev === 0 ? selectedEvent.gallery.length - 1 : prev - 1
                           )}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors"
+                          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors"
                         >
                           <ChevronLeft className="w-5 h-5" />
                         </button>
@@ -388,7 +518,7 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
                           onClick={() => setSelectedGalleryIndex((prev) => 
                             prev === selectedEvent.gallery.length - 1 ? 0 : prev + 1
                           )}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors"
                         >
                           <ChevronRight className="w-5 h-5" />
                         </button>
@@ -417,6 +547,53 @@ export function VenueMap({ venues, onVenueClick }: VenueMapProps) {
                   </div>
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Screen Image Modal */}
+      <AnimatePresence>
+        {fullScreenImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/95 backdrop-blur-md p-4"
+            style={{ zIndex: 99999 }}
+            onClick={() => setFullScreenImage(null)}
+          >
+            <button
+              onClick={() => setFullScreenImage(null)}
+              className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors"
+              aria-label="Close full screen"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="max-w-[90vw] max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {fullScreenImage.toLowerCase().endsWith('.mp4') || fullScreenImage.toLowerCase().endsWith('.webm') || fullScreenImage.toLowerCase().endsWith('.mov') ? (
+                <video
+                  src={fullScreenImage}
+                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  controls
+                />
+              ) : (
+                <img
+                  src={fullScreenImage}
+                  alt="Full screen"
+                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                />
+              )}
             </motion.div>
           </motion.div>
         )}

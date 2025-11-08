@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { DynamicColorText } from './DynamicColorText';
@@ -11,9 +11,21 @@ interface DJInfo {
   description: string;
 }
 
-export function ComingSoonSection() {
+interface ComingSoonSectionProps {
+  resetTrigger?: string;
+}
+
+export function ComingSoonSection({ resetTrigger }: ComingSoonSectionProps = {}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedDJ, setSelectedDJ] = useState<DJInfo | null>(null);
+  
+  // Reset state when leaving the next-event section
+  useEffect(() => {
+    if (resetTrigger && resetTrigger !== 'next-event') {
+      setIsExpanded(false);
+      setSelectedDJ(null);
+    }
+  }, [resetTrigger]);
   const comingSoonImageRef = useRef<HTMLDivElement>(null);
   const eventImageRef = useRef<HTMLDivElement>(null);
 

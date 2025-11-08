@@ -16,6 +16,8 @@ export default function App() {
   const aboutUsImageRef = useRef<HTMLDivElement>(null);
   const aboutUsSectionRef = useRef<HTMLDivElement>(null);
   const [isInAboutSection, setIsInAboutSection] = useState(false);
+  const [currentSection, setCurrentSection] = useState<string>('home');
+  const [previousSection, setPreviousSection] = useState<string>('home');
   const [heroImageIndex, setHeroImageIndex] = useState(0);
   const [imageChangeCount, setImageChangeCount] = useState(0);
   const [typingProgress, setTypingProgress] = useState(1);
@@ -50,6 +52,7 @@ export default function App() {
 
       const scrollPosition = window.scrollY + window.innerHeight / 2;
       let currentlyInAbout = false;
+      let newSection = 'home';
 
       for (const section of sections) {
         const element = document.getElementById(section.id);
@@ -57,6 +60,7 @@ export default function App() {
           const { offsetTop, offsetHeight } = element;
           if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
             setBgColor(section.color);
+            newSection = section.id;
             if (section.id === 'about') {
               currentlyInAbout = true;
             }
@@ -65,12 +69,18 @@ export default function App() {
         }
       }
 
+      // Track section changes and reset when leaving
+      if (newSection !== currentSection) {
+        setPreviousSection(currentSection);
+        setCurrentSection(newSection);
+      }
+
       setIsInAboutSection(currentlyInAbout);
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [currentSection]);
 
   // Auto-close when leaving About section
   useEffect(() => {
@@ -183,7 +193,7 @@ export default function App() {
 
       {/* Coming Soon Section */}
       <SectionTransition id="next-event">
-        <ComingSoonSection />
+        <ComingSoonSection resetTrigger={currentSection} />
       </SectionTransition>
 
       {/* About Us Section */}
@@ -334,7 +344,7 @@ export default function App() {
       {/* Archive Section */}
       <SectionTransition id="archive" className="relative min-h-screen flex flex-col items-center justify-center py-20">
         <motion.h2 
-          className="text-7xl md:text-8xl mb-16 text-[#2E1510] lowercase text-center"
+          className="text-[12rem] leading-[0.85] mb-16 text-[#2E1510] lowercase text-center"
           initial={{ opacity: 0, y: -20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -342,7 +352,7 @@ export default function App() {
         >
           archive
         </motion.h2>
-        <ArchiveCarousel />
+        <ArchiveCarousel resetTrigger={currentSection} />
       </SectionTransition>
 
       {/* Contact Us Section */}
@@ -356,10 +366,9 @@ export default function App() {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-8xl text-[#FCD478] mb-4">
-              LET'S CONNECT
+            <h2 className="text-[12rem] leading-[0.85] text-[#FCD478] mb-4 lowercase">
+              let's connect
             </h2>
-            <div className="w-32 h-1 bg-[#ED2800] mx-auto"></div>
           </motion.div>
 
           {/* Main Content Grid */}
@@ -372,13 +381,13 @@ export default function App() {
               viewport={{ once: true }}
               className="group"
             >
-              <div className="relative h-full bg-gradient-to-br from-[#FCD478]/20 to-[#ED2800]/20 p-8 rounded-2xl border-2 border-[#FCD478] hover:border-[#ED2800] transition-all duration-500 overflow-hidden">
+              <div className="relative h-full bg-gradient-to-br from-[#FCD478]/20 to-[#ED2800]/20 p-8 rounded-2xl border-2 border-[#FCD478] hover:border-[#ED2800] transition-colors duration-300 overflow-hidden">
                 {/* Animated background circle */}
-                <div className="absolute -top-20 -right-20 w-64 h-64 bg-[#ED2800]/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="absolute -top-20 -right-20 w-64 h-64 bg-[#ED2800]/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500" style={{ willChange: 'transform' }}></div>
                 
                 <div className="relative z-10">
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 bg-[#ED2800] rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform duration-300">
+                    <div className="w-16 h-16 bg-[#ED2800] rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform duration-300" style={{ willChange: 'transform' }}>
                       <Mail className="w-8 h-8 text-white" />
                     </div>
                     <h3 className="text-3xl text-[#FCD478]">Email Us</h3>
@@ -402,9 +411,9 @@ export default function App() {
               viewport={{ once: true }}
               className="group"
             >
-              <div className="relative h-full bg-gradient-to-br from-[#ED2800]/20 to-[#FCD478]/20 p-8 rounded-2xl border-2 border-[#FCD478] hover:border-[#ED2800] transition-all duration-500 overflow-hidden">
+              <div className="relative h-full bg-gradient-to-br from-[#ED2800]/20 to-[#FCD478]/20 p-8 rounded-2xl border-2 border-[#FCD478] hover:border-[#ED2800] transition-colors duration-300 overflow-hidden">
                 {/* Animated background circle */}
-                <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-[#FCD478]/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-[#FCD478]/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500" style={{ willChange: 'transform' }}></div>
                 
                 <div className="relative z-10">
                   <h3 className="text-3xl text-[#FCD478] mb-6">Follow The Vibe</h3>
@@ -412,39 +421,38 @@ export default function App() {
                   
                   <div className="grid grid-cols-3 gap-4">
                     {/* Instagram */}
-                    <motion.a
-                      href="#"
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="flex flex-col items-center gap-3 p-4 bg-[#220b04]/40 rounded-xl border border-[#FCD478]/30 hover:border-[#ED2800] hover:bg-[#ED2800]/20 transition-all duration-300"
+                    <a
+                      href="https://www.instagram.com/takeone.collective/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-col items-center gap-3 p-4 bg-[#220b04]/40 rounded-xl border border-[#FCD478]/30 hover:border-[#ED2800] hover:bg-[#ED2800]/20 hover:scale-105 transition-all duration-200"
+                      style={{ willChange: 'transform' }}
                     >
                       <Instagram className="w-8 h-8 text-[#FCD478]" />
                       <span className="text-white text-sm">Instagram</span>
-                    </motion.a>
+                    </a>
 
                     {/* SoundCloud */}
-                    <motion.a
+                    <a
                       href="#"
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="flex flex-col items-center gap-3 p-4 bg-[#220b04]/40 rounded-xl border border-[#FCD478]/30 hover:border-[#ED2800] hover:bg-[#ED2800]/20 transition-all duration-300"
+                      className="flex flex-col items-center gap-3 p-4 bg-[#220b04]/40 rounded-xl border border-[#FCD478]/30 hover:border-[#ED2800] hover:bg-[#ED2800]/20 hover:scale-105 transition-all duration-200"
+                      style={{ willChange: 'transform' }}
                     >
                       <Music className="w-8 h-8 text-[#FCD478]" />
                       <span className="text-white text-sm">SoundCloud</span>
-                    </motion.a>
+                    </a>
 
                     {/* WhatsApp */}
-                    <motion.a
+                    <a
                       href="https://wa.me/1234567890"
                       target="_blank"
                       rel="noopener noreferrer"
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="flex flex-col items-center gap-3 p-4 bg-[#220b04]/40 rounded-xl border border-[#FCD478]/30 hover:border-[#ED2800] hover:bg-[#ED2800]/20 transition-all duration-300"
+                      className="flex flex-col items-center gap-3 p-4 bg-[#220b04]/40 rounded-xl border border-[#FCD478]/30 hover:border-[#ED2800] hover:bg-[#ED2800]/20 hover:scale-105 transition-all duration-200"
+                      style={{ willChange: 'transform' }}
                     >
                       <MessageCircle className="w-8 h-8 text-[#FCD478]" />
                       <span className="text-white text-sm">WhatsApp</span>
-                    </motion.a>
+                    </a>
                   </div>
                 </div>
               </div>

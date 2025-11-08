@@ -12,6 +12,27 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
 
   const { src, alt, style, className, ...rest } = props
 
+  // Check if the source is a video file
+  const isVideo = src?.toLowerCase().endsWith('.mp4') || src?.toLowerCase().endsWith('.webm') || src?.toLowerCase().endsWith('.mov')
+
+  if (isVideo) {
+    return (
+      <video
+        src={src}
+        className={className}
+        style={style}
+        autoPlay
+        loop
+        muted
+        playsInline
+        onError={handleError}
+        {...(rest as React.VideoHTMLAttributes<HTMLVideoElement>)}
+      >
+        Your browser does not support the video tag.
+      </video>
+    )
+  }
+
   return didError ? (
     <div
       className={`inline-block bg-gray-100 text-center align-middle ${className ?? ''}`}

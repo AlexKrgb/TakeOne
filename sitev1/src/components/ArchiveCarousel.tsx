@@ -24,217 +24,213 @@ interface Event {
   genre: string[];
 }
 
+// Helper function to generate gallery paths
+const generateGallery = (eventFolder: string, count: number): string[] => {
+  return Array.from({ length: count }, (_, i) => 
+    `/images/events/${eventFolder}/gallery-${i + 1}.webp`
+  );
+};
+
 const events: Event[] = [
   {
     id: '1',
-    title: 'Summer Solstice',
-    month: 'June',
+    title: 'Mirò Club - R Room',
+    month: 'April',
     year: 2025,
-    date: 'June 21, 2025',
+    date: 'April 18, 2025',
     sets: 12,
-    poster: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
+    poster: '/images/events/event-miro-2/poster.webp',
     venue: 'Miro Club',
-    venueAddress: 'Via Andreas Hofer, Bolzano',
+    venueAddress: 'Piazza Domenicani, 3b, 39100 Bolzano BZ',
     description: 'An unforgettable night celebrating the longest day of the year with house music legends and rising stars.',
-    gallery: [
-      'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400',
-      'https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400',
-      'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400'
-    ],
-    djs: ['Maya Luna', 'DJ Sisko', 'Deep Mark', 'Vinyl Viktor'],
+    gallery: generateGallery('event-miro-2', 10),
+    djs: ['Bossifunk', 'Mattia Lorenzi', 'Alan La Rocc', 'Loned'],
     genre: ['Deep House', 'Tech House']
   },
   {
     id: '2',
-    title: 'Midnight Groove',
-    month: 'April',
+    title: 'TakeONE X Zoona Magnifique',
+    month: 'May',
     year: 2025,
-    date: 'April 15, 2025',
+    date: 'May 03, 2025',
     sets: 8,
-    poster: 'https://i.imgur.com/poMNsgj.jpg',
+    poster: '/images/events/event-zoona-2/poster.webp',
     venue: 'Zoona',
-    venueAddress: 'Via Duca d\'Aosta, Bolzano',
+    venueAddress: 'Via Vincenzo Lancia, 1, 39100 Bolzano BZ',
     description: 'Deep house and minimal techno took over the dance floor for an intimate night of pure rhythm.',
-    gallery: [
-      'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400',
-      'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400',
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400'
-    ],
-    djs: ['Nina Kraviz', 'Deep Mark', 'Acid Anna'],
+    gallery: generateGallery('event-zoona-2', 10),
+    djs: ['XTO', 'Loned', '?'],
     genre: ['Minimal', 'Deep House']
   },
   {
     id: '3',
-    title: 'New Year Bass',
-    month: 'January',
-    year: 2025,
-    date: 'January 1, 2025',
+    title: 'TakeONE X Goethe Haus',
+    month: 'May',
+    year: 2024,
+    date: 'May 15, 2024',
     sets: 15,
-    poster: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800',
+    poster: '/images/events/event-goethe-haus-1/poster.webp',
     venue: 'Goethe Haus',
-    venueAddress: 'Via Goethe, Bolzano',
+    venueAddress: 'Via Goethe, 42, 39100 Bolzano BZ',
     description: 'We brought in the new year with heavy basslines and non-stop energy from midnight to sunrise.',
-    gallery: [
-      'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400',
-      'https://images.unsplash.com/photo-1598387181032-a3103a2db5b3?w=400',
-      'https://images.unsplash.com/photo-1571266028243-d220c6e87a29?w=400'
-    ],
-    djs: ['DJ Sisko', 'Bass Queen', 'Maya Luna', 'Techno Tom', 'Vinyl Viktor'],
+    gallery: generateGallery('event-goethe-haus-1', 5),
+    djs: ['Loned', 'Mirko Ventura'],
     genre: ['Tech House', 'Techno']
   },
   {
     id: '4',
-    title: 'Autumn Ritual',
-    month: 'October',
-    year: 2024,
-    date: 'October 31, 2024',
+    title: 'TakeONE X Roncolo',
+    month: 'March',
+    year: 2025,
+    date: 'March 22, 2025',
     sets: 10,
-    poster: 'https://images.unsplash.com/photo-1598387181032-a3103a2db5b3?w=800',
+    poster: '/images/events/event-castel-roncolo-1/poster.webp',
     venue: 'Castel Roncolo',
-    venueAddress: 'Castel Roncolo, Bolzano',
+    venueAddress: 'Sentiero imperatore Francesco Giuseppe, 1, 39100 Bolzano BZ',
     description: 'A celebration of transition, blending organic sounds with electronic beats under the autumn sky.',
-    gallery: [
-      'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400',
-      'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400',
-      'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400'
-    ],
-    djs: ['Nina Kraviz', 'Deep Mark', 'Acid Anna', 'Maya Luna'],
+    gallery: generateGallery('event-castel-roncolo-1', 10),
+    djs: ['Loned', 'Morris Ferrari', 'Alan La Rocc'],
     genre: ['Organic House', 'Deep House']
   },
   {
     id: '5',
-    title: 'Spring Awakening',
-    month: 'March',
+    title: 'TakeONE X Lampele',
+    month: 'November',
     year: 2024,
-    date: 'March 20, 2024',
+    date: 'November 15, 2024',
     sets: 9,
-    poster: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800',
+    poster: '/images/events/event-miro-1/poster.webp',
     venue: 'Miro Club',
-    venueAddress: 'Via Andreas Hofer, Bolzano',
+    venueAddress: 'Piazza Domenicani, 3b, 39100 Bolzano BZ',
     description: 'Fresh beats to welcome the new season with uplifting melodies and groovy basslines.',
-    gallery: [
-      'https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400',
-      'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400',
-      'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400'
-    ],
-    djs: ['Techno Tom', 'Bass Queen', 'Vinyl Viktor'],
+    gallery: generateGallery('event-miro-1', 4),
+    djs: ['Loned', 'Yasmin'],
     genre: ['Progressive House', 'Melodic Techno']
   },
   {
     id: '6',
-    title: 'Winter Warehouse',
-    month: 'December',
-    year: 2023,
-    date: 'December 15, 2023',
+    title: 'TakeONE X Zoona',
+    month: 'September',
+    year: 2024,
+    date: 'September 06, 2024',
     sets: 11,
-    poster: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
+    poster: '/images/events/event-zoona-1/poster.webp',
     venue: 'Zoona',
-    venueAddress: 'Via Duca d\'Aosta, Bolzano',
+    venueAddress: 'Via Vincenzo Lancia, 1, 39100 Bolzano BZ',
     description: 'Raw industrial sounds and heavy beats to warm up the coldest nights.',
-    gallery: [
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
-      'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400',
-      'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400'
-    ],
-    djs: ['DJ Sisko', 'Acid Anna', 'Deep Mark', 'Nina Kraviz'],
+    gallery: generateGallery('event-zoona-1', 0),
+    djs: ['Morris Ferrari', 'Loned', 'Mattia Lorenzi'],
     genre: ['Techno', 'Industrial']
+  },
+  {
+    id: '7',
+    title: 'TakeONE X Unstructured',
+    month: 'September',
+    year: 2025,
+    date: 'September 19, 2025',
+    sets: 0,
+    poster: '/images/events/event-zoona-3/poster.mp4',
+    venue: 'Zoona',
+    venueAddress: 'Via Vincenzo Lancia, 1, 39100 Bolzano BZ',
+    description: 'Event description to be updated.',
+    gallery: generateGallery('event-zoona-3', 14),
+    djs: [],
+    genre: []
+  },
+  {
+    id: '8',
+    title: 'TakeONE X Mirò R Room',
+    month: 'September',
+    year: 2025,
+    date: 'September 12, 2025',
+    sets: 0,
+    poster: '/images/events/event-miro-3/poster.webp',
+    venue: 'Miro Club',
+    venueAddress: 'Piazza Domenicani, 3b, 39100 Bolzano BZ',
+    description: 'Event description to be updated.',
+    gallery: generateGallery('event-miro-3', 7),
+    djs: ["Young XTO, Loned, Alan La Rocc"],
+    genre: []
+  },
+  {
+    id: '9',
+    title: 'TakeONE X Astra TOOLBOX',
+    month: 'January',
+    year: 2025,
+    date: 'January 17, 2025',
+    sets: 1,
+    poster: '/images/events/event-astra-1/poster.webp',
+    venue: 'Astra Brixen',
+    venueAddress: 'Via Roma, 11, 39042 Bressanone BZ',
+    description: 'A night of electronic music at Astra Brixen.',
+    gallery: generateGallery('event-astra-1', 0),
+    djs: ['Loned'],
+    genre: []
   }
 ];
 
-// Real venues in Bolzano with the 6 carousel events distributed across them
+// Helper function to get event by ID from events array
+const getEventById = (id: string) => {
+  return events.find(e => e.id === id);
+};
+
+// Helper function to count DJs (handles both array of strings and comma-separated strings)
+const countDJs = (djs: string[]): number => {
+  return djs.reduce((count, dj) => {
+    const trimmed = dj.trim();
+    if (trimmed === '') return count;
+    // If the string contains commas, split and count each DJ
+    if (trimmed.includes(',')) {
+      return count + trimmed.split(',').filter(d => d.trim() !== '').length;
+    }
+    return count + 1;
+  }, 0);
+};
+
+// Real venues in Bolzano with the 8 carousel events: 1 Castel Roncolo, 1 Goethe Haus, 3 Zoona, 3 Mirò
 const realVenues = [
   { 
     name: 'Miro Club', 
-    address: 'Via Andreas Hofer, Bolzano', 
-    position: { lat: 46.4989, lng: 11.3547 },
+    address: 'Piazza Domenicani, 3b, 39100 Bolzano BZ', 
+    position: { lat: 46.49750405812552, lng: 11.352452835712338 },
     events: [
-      {
-        id: '1',
-        title: 'Summer Solstice',
-        date: 'June 21, 2025',
-        poster: events[0].poster,
-        sets: events[0].sets,
-        djs: events[0].djs,
-        genre: events[0].genre,
-        description: events[0].description,
-        gallery: events[0].gallery
-      },
-      {
-        id: '5',
-        title: 'Spring Awakening',
-        date: 'March 20, 2024',
-        poster: events[4].poster,
-        sets: events[4].sets,
-        djs: events[4].djs,
-        genre: events[4].genre,
-        description: events[4].description,
-        gallery: events[4].gallery
-      }
+      getEventById('1')!,
+      getEventById('5')!,
+      getEventById('8')!
     ]
   },
   { 
     name: 'Zoona', 
-    address: 'Via Duca d\'Aosta, Bolzano', 
-    position: { lat: 46.4975, lng: 11.3565 },
+    address: 'Via Vincenzo Lancia, 1, 39100 Bolzano BZ', 
+    position: { lat: 46.484823870426304, lng: 11.337192612674903 },
     events: [
-      {
-        id: '2',
-        title: 'Midnight Groove',
-        date: 'April 15, 2025',
-        poster: events[1].poster,
-        sets: events[1].sets,
-        djs: events[1].djs,
-        genre: events[1].genre,
-        description: events[1].description,
-        gallery: events[1].gallery
-      },
-      {
-        id: '6',
-        title: 'Winter Warehouse',
-        date: 'December 15, 2023',
-        poster: events[5].poster,
-        sets: events[5].sets,
-        djs: events[5].djs,
-        genre: events[5].genre,
-        description: events[5].description,
-        gallery: events[5].gallery
-      }
+      getEventById('2')!,
+      getEventById('6')!,
+      getEventById('7')!
     ]
   },
   { 
     name: 'Goethe Haus', 
-    address: 'Via Goethe, Bolzano', 
-    position: { lat: 46.5005, lng: 11.3520 },
+    address: 'Via Goethe, 42, 39100 Bolzano BZ', 
+    position: { lat: 46.4982351952385, lng: 11.352331620903415 },
     events: [
-      {
-        id: '3',
-        title: 'New Year Bass',
-        date: 'January 1, 2025',
-        poster: events[2].poster,
-        sets: events[2].sets,
-        djs: events[2].djs,
-        genre: events[2].genre,
-        description: events[2].description,
-        gallery: events[2].gallery
-      }
+      getEventById('3')!
     ]
   },
   { 
     name: 'Castel Roncolo', 
-    address: 'Castel Roncolo, Bolzano', 
-    position: { lat: 46.5100, lng: 11.3600 },
+    address: 'Sentiero imperatore Francesco Giuseppe, 1, 39100 Bolzano BZ', 
+    position: { lat: 46.517748493962706, lng: 11.359062009518354 },
     events: [
-      {
-        id: '4',
-        title: 'Autumn Ritual',
-        date: 'October 31, 2024',
-        poster: events[3].poster,
-        sets: events[3].sets,
-        djs: events[3].djs,
-        genre: events[3].genre,
-        description: events[3].description,
-        gallery: events[3].gallery
-      }
+      getEventById('4')!
+    ]
+  },
+  { 
+    name: 'Astra Brixen', 
+    address: 'Via Roma, 11, 39042 Bressanone BZ', 
+    position: { lat: 46.716610972149525, lng: 11.652391936557878 },
+    events: [
+      getEventById('9')!
     ]
   }
 ];
@@ -257,7 +253,11 @@ const allDJs = [
 
 type ViewMode = 'carousel' | 'grid';
 
-export function ArchiveCarousel() {
+interface ArchiveCarouselProps {
+  resetTrigger?: string;
+}
+
+export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('carousel');
@@ -267,8 +267,50 @@ export function ArchiveCarousel() {
   const [selectedVenue, setSelectedVenue] = useState<string>('all');
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  
+  // Reset all state when leaving the archive section
+  useEffect(() => {
+    if (resetTrigger && resetTrigger !== 'archive') {
+      setSelectedEvent(null);
+      setSelectedGalleryIndex(0);
+      setViewMode('carousel');
+      setSelectedYear('all');
+      setSelectedMonth('all');
+      setSelectedDJ('all');
+      setSelectedVenue('all');
+      setCurrentIndex(0);
+      setFullScreenImage(null);
+    }
+  }, [resetTrigger]);
+  
   const carouselRef = useRef<HTMLDivElement>(null);
   const autoScrollIntervalRef = useRef<number | null>(null);
+  const carouselSectionRef = useRef<HTMLDivElement>(null);
+  const [isCarouselInView, setIsCarouselInView] = useState(false);
+  
+  // Detect when carousel section is in view to close venue panel
+  useEffect(() => {
+    if (!carouselSectionRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setIsCarouselInView(entry.isIntersecting);
+        });
+      },
+      {
+        threshold: 0.1, // Trigger when 10% of the carousel is visible
+        rootMargin: '-100px 0px', // Add some margin to trigger earlier
+      }
+    );
+
+    observer.observe(carouselSectionRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   // Filter events
   const filteredEvents = events.filter(event => {
@@ -283,9 +325,10 @@ export function ArchiveCarousel() {
   const years = Array.from(new Set(events.map(e => e.year))).sort((a, b) => b - a);
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-  // Calculate statistics
+  // Calculate statistics from real event data
   const totalSets = events.reduce((sum, event) => sum + event.sets, 0);
-  const uniqueDJs = new Set(events.flatMap(e => e.djs)).size;
+  const uniqueDJs = new Set(events.flatMap(e => e.djs.filter(dj => dj.trim() !== ''))).size;
+  const venuesWithEvents = venues.filter(venue => (venue.events?.length || 0) > 0).length;
 
   // Reset current index when filters change
   useEffect(() => {
@@ -300,7 +343,7 @@ export function ArchiveCarousel() {
           const nextIndex = prev + 1;
           return nextIndex >= filteredEvents.length ? 0 : nextIndex;
         });
-      }, 3000); // Change slide every 3 seconds
+       }, 5000); // Change slide every 5 seconds
 
       return () => {
         if (autoScrollIntervalRef.current) {
@@ -345,7 +388,7 @@ export function ArchiveCarousel() {
 
     return (
       <div
-        className={`${isCarousel ? 'flex-shrink-0 w-80' : 'w-full'} cursor-pointer`}
+        className={`${isCarousel ? 'flex-shrink-0 w-80' : 'w-full'} cursor-pointer group`}
         onClick={() => {
           setSelectedEvent(event);
           setSelectedGalleryIndex(0);
@@ -358,15 +401,29 @@ export function ArchiveCarousel() {
         }`}>
           <div className="relative h-64 overflow-hidden">
             <div className="w-full h-full overflow-hidden">
-              <img
-                src={event.poster}
-                alt={event.title}
-                loading="lazy"
-                className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
-                  isHovered ? 'scale-110' : 'scale-100'
-                }`}
-                style={{ pointerEvents: 'none' }}
-              />
+              {event.poster.toLowerCase().endsWith('.mp4') || event.poster.toLowerCase().endsWith('.webm') || event.poster.toLowerCase().endsWith('.mov') ? (
+                <video
+                  src={event.poster}
+                  className="w-full h-full object-cover"
+                  style={{ 
+                    pointerEvents: 'none'
+                  }}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+              ) : (
+                <img
+                  src={event.poster}
+                  alt={event.title}
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                  style={{ 
+                    pointerEvents: 'none'
+                  }}
+                />
+              )}
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-[#2E1510] to-transparent opacity-60 pointer-events-none" />
             <div className="absolute top-4 right-4 flex flex-wrap gap-2 pointer-events-none">
@@ -379,7 +436,7 @@ export function ArchiveCarousel() {
           <div className="p-6">
             <h3 className="text-2xl text-white mb-2">{event.title}</h3>
             <p className="text-[#FCD478] mb-1">{event.date}</p>
-            <p className="text-white/60 mb-3">{event.sets} Sets • {event.venue}</p>
+            <p className="text-white/60 mb-3">{countDJs(event.djs)} Sets • {event.venue}</p>
             <div className="flex flex-wrap gap-2">
               {event.djs.slice(0, 3).map(dj => (
                 <span key={dj} className="text-xs text-white/40">{dj}</span>
@@ -400,15 +457,20 @@ export function ArchiveCarousel() {
       <ArchiveStats
         totalEvents={events.length}
         totalSets={totalSets}
-        totalVenues={venues.length}
+        totalVenues={venuesWithEvents}
         totalDJs={uniqueDJs}
       />
 
       {/* Venue Map */}
-      <VenueMap venues={venues} onVenueClick={handleVenueClick} />
+      <VenueMap 
+        venues={venues} 
+        onVenueClick={handleVenueClick} 
+        resetTrigger={resetTrigger}
+        closeOnCarouselView={isCarouselInView}
+      />
 
       {/* Year Navigator */}
-      <div className="flex flex-wrap justify-center gap-3 mb-8">
+      <div ref={carouselSectionRef} className="flex flex-wrap justify-center gap-3 mb-8">
         <Button
           onClick={() => handleYearClick('all')}
           variant={selectedYear === 'all' ? 'default' : 'outline'}
@@ -581,7 +643,7 @@ export function ArchiveCarousel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#220b04]/95 backdrop-blur-md"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#220b04]/95 backdrop-blur-md"
             onClick={() => setSelectedEvent(null)}
           >
             <motion.div
@@ -601,11 +663,27 @@ export function ArchiveCarousel() {
               </button>
 
               <div className="p-8 md:p-12">
-                <div className="relative w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden mb-8 shadow-xl">
+                {/* Poster container - 650px max width */}
+                <div 
+                  className="relative mx-auto rounded-2xl overflow-hidden mb-8 shadow-xl bg-[#2E1510]/20 transition-all duration-300 ease-out cursor-pointer" 
+                  style={{ 
+                    maxWidth: '650px', 
+                    width: 'fit-content'
+                  }}
+                  onClick={() => setFullScreenImage(selectedEvent.poster)}
+                >
                   <ImageWithFallback
                     src={selectedEvent.poster}
                     alt={selectedEvent.title}
-                    className="w-full h-full object-cover"
+                    className="object-contain block"
+                    style={{ 
+                      maxWidth: '650px',
+                      maxHeight: '650px',
+                      width: 'auto',
+                      height: 'auto',
+                      display: 'block',
+                      pointerEvents: 'none'
+                    }}
                   />
                 </div>
 
@@ -632,7 +710,7 @@ export function ArchiveCarousel() {
                     </div>
                     <div>
                       <p className="text-sm text-[#2E1510]/60 uppercase tracking-wide mb-1">Sets</p>
-                      <p className="text-xl text-[#2E1510]">{selectedEvent.sets} DJ Sets</p>
+                      <p className="text-xl text-[#2E1510]">{countDJs(selectedEvent.djs)} DJ Sets</p>
                     </div>
                   </div>
                   
@@ -653,11 +731,19 @@ export function ArchiveCarousel() {
                 <div>
                   <h3 className="text-2xl text-[#2E1510] mb-4 lowercase">photo gallery</h3>
                   
-                  <div className="relative w-full h-[300px] md:h-[400px] rounded-xl overflow-hidden mb-4 shadow-lg">
+                  {/* Gallery container - 650px max width */}
+                  <div className="relative mx-auto rounded-xl overflow-hidden mb-4 shadow-lg bg-[#2E1510]/20" style={{ maxWidth: '650px', width: 'fit-content' }}>
                     <ImageWithFallback
                       src={selectedEvent.gallery[selectedGalleryIndex]}
                       alt={`${selectedEvent.title} gallery ${selectedGalleryIndex + 1}`}
-                      className="w-full h-full object-cover"
+                      className="object-contain block"
+                      style={{ 
+                        maxWidth: '650px',
+                        maxHeight: '650px',
+                        width: 'auto',
+                        height: 'auto',
+                        display: 'block'
+                      }}
                     />
                     
                     {selectedEvent.gallery.length > 1 && (
@@ -666,7 +752,7 @@ export function ArchiveCarousel() {
                           onClick={() => setSelectedGalleryIndex((prev) => 
                             prev === 0 ? selectedEvent.gallery.length - 1 : prev - 1
                           )}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors"
+                          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors z-10"
                         >
                           <ChevronLeft className="w-5 h-5" />
                         </button>
@@ -674,7 +760,7 @@ export function ArchiveCarousel() {
                           onClick={() => setSelectedGalleryIndex((prev) => 
                             prev === selectedEvent.gallery.length - 1 ? 0 : prev + 1
                           )}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors z-10"
                         >
                           <ChevronRight className="w-5 h-5" />
                         </button>
@@ -703,6 +789,53 @@ export function ArchiveCarousel() {
                   </div>
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Screen Image Modal */}
+      <AnimatePresence>
+        {fullScreenImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/95 backdrop-blur-md p-4"
+            style={{ zIndex: 99999 }}
+            onClick={() => setFullScreenImage(null)}
+          >
+            <button
+              onClick={() => setFullScreenImage(null)}
+              className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors"
+              aria-label="Close full screen"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="max-w-[90vw] max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {fullScreenImage.toLowerCase().endsWith('.mp4') || fullScreenImage.toLowerCase().endsWith('.webm') || fullScreenImage.toLowerCase().endsWith('.mov') ? (
+                <video
+                  src={fullScreenImage}
+                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  controls
+                />
+              ) : (
+                <img
+                  src={fullScreenImage}
+                  alt="Full screen"
+                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                />
+              )}
             </motion.div>
           </motion.div>
         )}
