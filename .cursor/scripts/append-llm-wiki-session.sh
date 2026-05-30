@@ -55,10 +55,11 @@ slug="${slug%-}"
 [[ -z "$slug" ]] && slug="general"
 
 date_dir="$(date +%Y-%m-%d)"
-time_stamp="$(date +%H%M%S)"
 out_dir="$BRAIN/raw/sources/cursor-sessions/$date_dir"
 mkdir -p "$out_dir"
-out_file="$out_dir/${time_stamp}-${slug}.md"
+out_file="$out_dir/${slug}.md"
+is_new_file=0
+[[ ! -f "$out_file" ]] && is_new_file=1
 
 edits_block=""
 if [[ -f "$BUFFER" ]]; then
@@ -66,21 +67,35 @@ if [[ -f "$BUFFER" ]]; then
   : >"$BUFFER"
 fi
 
-{
-  echo "# Cursor session — $date_dir $time_stamp"
-  echo ""
-  echo "- **Topic:** $TOPIC"
-  echo "- **Repo:** TakeOne"
-  echo "- **Captured:** $(date -u +%Y-%m-%dT%H:%M:%SZ) (local wall clock for filename)"
-  echo ""
-  if [[ -n "$edits_block" ]]; then
-    echo "## Files touched (hook)"
-    echo "$edits_block"
+if [[ "$is_new_file" -eq 1 ]]; then
+  {
+    echo "# Cursor sessions — $date_dir — $TOPIC"
     echo ""
-  fi
-  echo "## Summary"
-  echo "$SUMMARY"
-} >"$out_file"
+    echo "- **Topic:** $TOPIC"
+    echo "- **Repo:** TakeOne"
+    echo ""
+    if [[ -n "$edits_block" ]]; then
+      echo "## Files touched (hook)"
+      echo "$edits_block"
+      echo ""
+    fi
+    echo "## Summary"
+    echo "$SUMMARY"
+  } >"$out_file"
+else
+  {
+    echo ""
+    echo "---"
+    echo ""
+    if [[ -n "$edits_block" ]]; then
+      echo "## Files touched (hook)"
+      echo "$edits_block"
+      echo ""
+    fi
+    echo "## Summary"
+    echo "$SUMMARY"
+  } >>"$out_file"
+fi
 
 echo "LLM_WIKI_APPEND_OK: $out_file"
 

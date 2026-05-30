@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { HERO_IMAGES } from '../content/siteAssets';
 import { DynamicColorText } from './DynamicColorText';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Instagram } from 'lucide-react';
@@ -349,7 +350,7 @@ export function ComingSoonSection({ resetTrigger }: ComingSoonSectionProps = {})
               transition={{ duration: 0.9, ease: [0.43, 0.13, 0.23, 0.96] }}
             >
               <ImageWithFallback
-                src="https://i.imgur.com/Z5vEbd9.jpg"
+                src={HERO_IMAGES[1]}
                 alt="Coming Soon Event"
                 className="w-full h-full object-cover"
               />

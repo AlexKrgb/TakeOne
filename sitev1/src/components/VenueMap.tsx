@@ -90,7 +90,6 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
   const map = useRef<Map | null>(null);
   const markers = useRef<Marker[]>([]);
   const maplibreRef = useRef<typeof import('maplibre-gl').default | null>(null);
-  const [shouldLoadMap, setShouldLoadMap] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
 
@@ -142,25 +141,7 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
   }, [onVenueClick]);
 
   useEffect(() => {
-    const container = mapContainer.current;
-    if (!container) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShouldLoadMap(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '300px' }
-    );
-
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!shouldLoadMap || !mapContainer.current || map.current) return;
+    if (!mapContainer.current || map.current) return;
 
     let isMounted = true;
 
@@ -223,7 +204,7 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
         map.current = null;
       }
     };
-  }, [shouldLoadMap]);
+  }, []);
 
   // Add markers when venues change
   useEffect(() => {

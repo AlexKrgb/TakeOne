@@ -8,6 +8,7 @@ import { ContactSection } from './components/ContactSection';
 import { ComingSoonSection } from './components/ComingSoonSection';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
+import { HERO_IMAGES, ABOUT_LOGO } from './content/siteAssets';
 
 const ArchiveCarousel = lazy(() =>
   import('./components/ArchiveCarousel').then((module) => ({
@@ -50,14 +51,14 @@ export default function App() {
     document.body.style.backgroundColor = bgColor;
   }, [bgColor]);
 
-  const heroImages = [
-    'https://i.imgur.com/poMNsgj.jpg',
-    'https://i.imgur.com/Z5vEbd9.jpg',
-    'https://i.imgur.com/7OTeZui.jpeg',
-    'https://i.imgur.com/UvmX7DW.jpg',
-    'https://i.imgur.com/4kAeojD.jpeg',
-    'https://i.imgur.com/3gTQYZq.jpeg'
-  ];
+  const heroImages = HERO_IMAGES;
+
+  useEffect(() => {
+    heroImages.slice(1).forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [heroImages]);
 
   const handleWordChange = useCallback((index: number) => {
     setHeroImageIndex((prev) => (prev + 1) % heroImages.length);
@@ -191,6 +192,8 @@ export default function App() {
               src={heroImages[heroImageIndex]}
               alt={`Hero background ${heroImageIndex + 1}`}
               className="w-full h-full object-cover hero-bg-img"
+              fetchPriority={heroImageIndex === 0 ? 'high' : 'auto'}
+              loading={heroImageIndex === 0 ? 'eager' : 'lazy'}
             />
             {/* Soft edge overlay — replaces expensive CSS blur filter */}
             <div className="absolute inset-0 pointer-events-none hero-bg-soften" />
@@ -359,7 +362,7 @@ export default function App() {
                 }}
               >
                 <ImageWithFallback
-                  src="https://i.imgur.com/PzDcKRs.png"
+                  src={ABOUT_LOGO}
                   alt="TakeOne Logo"
                   className="about-logo w-full h-auto scale-x-[-1]"
                   style={{
@@ -463,7 +466,7 @@ export default function App() {
       <ContactSection />
 
       <footer className="bg-[#2E1510] border-t-2 border-[#FCD478] py-8 text-center">
-        <p className="text-white">© 2025 TakeOne Collective. All rights reserved.</p>
+        <p className="text-white">© 2026 TakeOne Collective. All rights reserved.</p>
       </footer>
     </div>
   );

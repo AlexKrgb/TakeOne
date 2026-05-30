@@ -137,7 +137,7 @@ const events: Event[] = [
     poster: '/images/events/event-zoona-3/poster.webp',
     venue: 'Zoona',
     venueAddress: 'Via Vincenzo Lancia, 1, 39100 Bolzano BZ',
-    description: 'Event description to be updated.',
+    description: 'A collaborative night with Unstructured at Zoona — open-format electronic sets and late-night energy in Bolzano.',
     gallery: generateGallery('event-zoona-3', 14),
     djs: [],
     genre: []
@@ -152,7 +152,7 @@ const events: Event[] = [
     poster: '/images/events/event-miro-3/poster.webp',
     venue: 'Miro Club',
     venueAddress: 'Piazza Domenicani, 3b, 39100 Bolzano BZ',
-    description: 'Event description to be updated.',
+    description: 'TakeOne returns to Mirò\'s R Room for a tight club night with Young XTO, Loned, and Alan La Rocc.',
     gallery: generateGallery('event-miro-3', 7),
     djs: ["Young XTO, Loned, Alan La Rocc"],
     genre: []
@@ -759,7 +759,7 @@ export const ArchiveCarousel = memo(function ArchiveCarousel({ resetTrigger }: A
         totalDJs={uniqueDJs}
       />
 
-      {/* Venue Map */}
+      {/* Venue Map — loads when archive section mounts (deferred by App.tsx) */}
       <Suspense
         fallback={
           <div

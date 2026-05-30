@@ -38,7 +38,7 @@ bash .cursor/scripts/append-llm-wiki-session.sh --topic <website|components|even
 EOF
 ```
 
-Pick `--topic` from the main area touched. The script saves under `raw/sources/cursor-sessions/` and triggers LLM Wiki **rescan** when `LLM_WIKI_API_TOKEN` is set and the app is running.
+Pick `--topic` from the main area touched. The script appends under `raw/sources/cursor-sessions/YYYY-MM-DD/{topic}.md` (one file per day per topic, no timestamps in filenames) and triggers LLM Wiki **rescan** when `LLM_WIKI_API_TOKEN` is set and the app is running.
 
 Tell the user the wiki path printed (`LLM_WIKI_APPEND_OK: ...`) in one short line.
 
