@@ -4,11 +4,16 @@ import { TentMenu } from './components/TentMenu';
 import { SectionTransition } from './components/SectionTransition';
 import { ImageWithFallback } from './components/figma/ImageWithFallback';
 import { CustomCursor } from './components/CustomCursor';
-import { ArchiveCarousel } from './components/ArchiveCarousel';
+import { ContactSection } from './components/ContactSection';
 import { ComingSoonSection } from './components/ComingSoonSection';
 import { motion, useScroll, useTransform } from 'motion/react';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Instagram, Music, MessageCircle, Mail } from 'lucide-react';
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
+
+const ArchiveCarousel = lazy(() =>
+  import('./components/ArchiveCarousel').then((module) => ({
+    default: module.ArchiveCarousel,
+  }))
+);
 
 export default function App() {
   const [bgColor, setBgColor] = useState('#220b04');
@@ -20,7 +25,30 @@ export default function App() {
   const [previousSection, setPreviousSection] = useState<string>('home');
   const [heroImageIndex, setHeroImageIndex] = useState(0);
   const [imageChangeCount, setImageChangeCount] = useState(0);
-  const [typingProgress, setTypingProgress] = useState(1);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1920);
+  const [showArchive, setShowArchive] = useState(false);
+  const heroBgRef = useRef<HTMLDivElement>(null);
+  const currentSectionRef = useRef('home');
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.style.backgroundColor = bgColor;
+    document.body.style.backgroundColor = bgColor;
+  }, [bgColor]);
 
   const heroImages = [
     'https://i.imgur.com/poMNsgj.jpg',
@@ -37,50 +65,75 @@ export default function App() {
   }, [heroImages.length]);
 
   const handleProgressChange = useCallback((progress: number) => {
-    setTypingProgress(progress);
+    if (heroBgRef.current) {
+      heroBgRef.current.style.opacity = String(progress);
+    }
   }, []);
 
+  const SECTIONS = [
+    { id: 'home', color: '#220b04' },
+    { id: 'next-event', color: '#FCD478' },
+    { id: 'about', color: '#2E1510' },
+    { id: 'archive', color: '#FCD478' },
+    { id: 'contact', color: '#220b04' },
+  ] as const;
+
   useEffect(() => {
-    const handleScroll = () => {
-      const sections = [
-        { id: 'home', color: '#220b04' },
-        { id: 'next-event', color: '#FCD478' },
-        { id: 'about', color: '#2E1510' },
-        { id: 'archive', color: '#FCD478' },
-        { id: 'contact', color: '#220b04' }
-      ];
+    const sectionElements = SECTIONS
+      .map((section) => ({ ...section, el: document.getElementById(section.id) }))
+      .filter((section): section is (typeof SECTIONS)[number] & { el: HTMLElement } => section.el !== null);
 
-      const scrollPosition = window.scrollY + window.innerHeight / 2;
-      let currentlyInAbout = false;
-      let newSection = 'home';
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
 
-      for (const section of sections) {
-        const element = document.getElementById(section.id);
-        if (element) {
-          const { offsetTop, offsetHeight } = element;
-          if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
-            setBgColor(section.color);
-            newSection = section.id;
-            if (section.id === 'about') {
-              currentlyInAbout = true;
-            }
-            break;
-          }
+        if (!visible) return;
+
+        const section = SECTIONS.find((item) => item.id === visible.target.id);
+        if (!section) return;
+
+        setBgColor((prev) => (prev !== section.color ? section.color : prev));
+
+        if (currentSectionRef.current !== section.id) {
+          setPreviousSection(currentSectionRef.current);
+          currentSectionRef.current = section.id;
+          setCurrentSection(section.id);
         }
-      }
 
-      // Track section changes and reset when leaving
-      if (newSection !== currentSection) {
-        setPreviousSection(currentSection);
-        setCurrentSection(newSection);
-      }
+        setIsInAboutSection((prev) => {
+          const next = section.id === 'about';
+          return prev !== next ? next : prev;
+        });
+      },
+      { threshold: [0.25, 0.5, 0.75], rootMargin: '-20% 0px -20% 0px' }
+    );
 
-      setIsInAboutSection(currentlyInAbout);
+    sectionElements.forEach(({ el }) => observer.observe(el));
+
+    const archiveEl = document.getElementById('archive');
+    const archiveObserver = archiveEl
+      ? new IntersectionObserver(
+          ([entry]) => {
+            if (entry.isIntersecting) {
+              setShowArchive(true);
+              archiveObserver.disconnect();
+            }
+          },
+          { rootMargin: '500px' }
+        )
+      : null;
+
+    if (archiveEl && archiveObserver) {
+      archiveObserver.observe(archiveEl);
+    }
+
+    return () => {
+      observer.disconnect();
+      archiveObserver?.disconnect();
     };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [currentSection]);
+  }, []);
 
   // Auto-close when leaving About section
   useEffect(() => {
@@ -118,12 +171,17 @@ export default function App() {
       >
         {/* Background Images - Alternating Sides */}
         <div
-          className="absolute top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300"
+          ref={heroBgRef}
+          className={`absolute pointer-events-none transition-all duration-300 hero-bg-image ${
+            windowWidth < 768 ? 'inset-0' : 'top-1/2 -translate-y-1/2'
+          }`}
           style={{
-            [imageChangeCount % 2 === 0 ? 'right' : 'left']: '0%',
-            width: '55%',
-            height: '85vh',
-            opacity: typingProgress,
+            ...(windowWidth >= 768 && {
+              [imageChangeCount % 2 === 0 ? 'right' : 'left']: '0%',
+              width: '55%',
+              height: '85vh',
+            }),
+            opacity: 1,
           }}
         >
           <div 
@@ -132,9 +190,10 @@ export default function App() {
             <ImageWithFallback
               src={heroImages[heroImageIndex]}
               alt={`Hero background ${heroImageIndex + 1}`}
-              className="w-full h-full object-cover"
-              style={{ filter: 'blur(2px)' }}
+              className="w-full h-full object-cover hero-bg-img"
             />
+            {/* Soft edge overlay — replaces expensive CSS blur filter */}
+            <div className="absolute inset-0 pointer-events-none hero-bg-soften" />
             {/* Fade effect on all 4 borders */}
             <div 
               className="absolute inset-0 pointer-events-none"
@@ -151,7 +210,7 @@ export default function App() {
         </div>
         
         {/* Vinyl Logo - Top Left */}
-        <div className="fixed top-8 left-8 z-50">
+        <div className="fixed hero-logo z-50">
           <VinylLogo />
         </div>
 
@@ -159,7 +218,7 @@ export default function App() {
         <TentMenu onNavigate={handleNavigate} bgColor={bgColor} />
 
         {/* Typewriter Center */}
-        <div className="relative z-10 px-4">
+        <div className="relative z-10 typewriter-container">
           <TypewriterEffect 
             fixedText="TakeOne is"
             texts={[
@@ -198,7 +257,7 @@ export default function App() {
 
       {/* About Us Section */}
       <div ref={aboutUsSectionRef} id="about">
-        <SectionTransition className="relative min-h-screen flex items-center justify-between px-16 overflow-hidden">
+        <SectionTransition className="relative min-h-screen flex items-center justify-between about-section overflow-hidden">
           {/* Background Color Shift - Only when curtain opens */}
           <motion.div
             className="absolute inset-0 z-0"
@@ -209,30 +268,34 @@ export default function App() {
             transition={{ duration: 0.6, ease: "easeInOut" }}
           />
 
-          {/* Backdrop Blur Overlay */}
+          {/* Dim overlay instead of backdrop-blur for performance */}
           <motion.div
-            className="absolute inset-0 z-20 backdrop-blur-sm"
+            className="absolute inset-0 z-20 bg-[#220b04]/55"
             initial={{ opacity: 0 }}
             animate={{ opacity: aboutCurtainOpen ? 1 : 0 }}
             transition={{ duration: 0.5 }}
             style={{ pointerEvents: 'none' }}
           />
 
-          <div className="absolute inset-0 flex items-center justify-between px-16 overflow-hidden">
+          <div className="absolute inset-0 flex items-center justify-between about-section overflow-hidden">
             {/* Title and Button Container */}
             <div 
-              className="relative z-10 flex flex-col gap-12"
+              className="relative z-10 flex flex-col about-scroll-layer"
               style={{ 
                 x: aboutTitleX,
-                opacity: aboutTitleOpacity
+                opacity: aboutTitleOpacity,
+                gap: windowWidth < 640 ? '1.5rem' : windowWidth < 768 ? '2rem' : windowWidth < 1024 ? '2rem' : '3rem'
               }}
             >
               {/* Title - Blurs when open */}
               <motion.h2 
-                className="text-[12rem] leading-[0.85] lowercase"
+                className="about-title leading-[0.85] lowercase"
+                style={{
+                  fontSize: windowWidth < 640 ? '4rem' : windowWidth < 768 ? '6rem' : windowWidth < 1024 ? '8rem' : windowWidth < 1280 ? '10rem' : '12rem'
+                }}
                 animate={{
                   color: aboutCurtainOpen ? '#2E1510' : '#FCD478',
-                  filter: aboutCurtainOpen ? 'blur(4px)' : 'blur(0px)'
+                  opacity: aboutCurtainOpen ? 0.3 : 1,
                 }}
                 transition={{ duration: 0.5 }}
               >
@@ -241,7 +304,12 @@ export default function App() {
               
               {/* Plus/Minus Button - Stays sharp */}
               <motion.button 
-                className="w-32 h-32 rounded-full border-4 flex items-center justify-center group transition-all duration-300"
+                className="about-button rounded-full flex items-center justify-center group transition-all duration-300"
+                style={{
+                  width: windowWidth < 640 ? '4rem' : windowWidth < 768 ? '5rem' : windowWidth < 1024 ? '6rem' : windowWidth < 1280 ? '8rem' : '8rem',
+                  height: windowWidth < 640 ? '4rem' : windowWidth < 768 ? '5rem' : windowWidth < 1024 ? '6rem' : windowWidth < 1280 ? '8rem' : '8rem',
+                  borderWidth: windowWidth < 768 ? '2px' : '4px'
+                }}
                 animate={{
                   borderColor: aboutCurtainOpen ? '#2E1510' : '#FCD478',
                   backgroundColor: 'transparent'
@@ -251,7 +319,10 @@ export default function App() {
                 whileTap={{ scale: 0.95 }}
               >
                 <motion.span 
-                  className="text-8xl leading-none"
+                  className="about-button-text leading-none"
+                  style={{
+                    fontSize: windowWidth < 640 ? '2.5rem' : windowWidth < 768 ? '3rem' : windowWidth < 1024 ? '3.75rem' : windowWidth < 1280 ? '4.5rem' : '6rem'
+                  }}
                   animate={{
                     color: aboutCurtainOpen ? '#2E1510' : '#FCD478'
                   }}
@@ -266,8 +337,10 @@ export default function App() {
           </div>
 
           {/* Logo and Description Layer - Slide from Right with Staggered Animation */}
-          <div className="absolute right-0 top-0 bottom-0 flex flex-col items-center justify-center px-16 z-30 pointer-events-none" style={{ width: '60%' }}>
-            <div className="flex flex-col items-center gap-8 w-full max-w-3xl">
+          <div className="absolute right-0 top-0 bottom-0 flex flex-col items-center justify-center about-logo-container z-30 pointer-events-none"
+               style={{ width: windowWidth < 768 ? '100%' : '60%', padding: windowWidth < 640 ? '1rem' : windowWidth < 768 ? '2rem' : windowWidth < 1024 ? '2rem' : '4rem' }}>
+            <div className="flex flex-col items-center w-full max-w-3xl"
+                 style={{ gap: windowWidth < 640 ? '1rem' : windowWidth < 768 ? '1.5rem' : windowWidth < 1024 ? '2rem' : '2rem' }}>
               {/* Logo - First to appear */}
               <motion.div
                 className="w-full flex justify-center"
@@ -288,15 +361,22 @@ export default function App() {
                 <ImageWithFallback
                   src="https://i.imgur.com/PzDcKRs.png"
                   alt="TakeOne Logo"
-                  className="max-w-md w-full h-auto scale-x-[-1]"
+                  className="about-logo w-full h-auto scale-x-[-1]"
+                  style={{
+                    maxWidth: windowWidth < 640 ? '200px' : windowWidth < 768 ? '300px' : '28rem'
+                  }}
                 />
               </motion.div>
 
               {/* Description */}
-              <div className="text-center w-full">
+              <div className="text-center w-full" style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
                 {/* Headline - Second to appear */}
                 <motion.p 
-                  className="text-3xl text-[#220b04] mb-6 uppercase tracking-wide"
+                  className="about-headline text-[#220b04] uppercase tracking-wide"
+                  style={{
+                    fontSize: windowWidth < 640 ? '1.125rem' : windowWidth < 768 ? '1.25rem' : windowWidth < 1024 ? '1.5rem' : '1.875rem',
+                    marginBottom: windowWidth < 640 ? '1rem' : '1.5rem'
+                  }}
                   initial={{ x: typeof window !== 'undefined' ? window.innerWidth : 2000, opacity: 0 }}
                   animate={aboutCurtainOpen ? {
                     x: 0,
@@ -316,7 +396,10 @@ export default function App() {
                 
                 {/* Body Text - Last to appear */}
                 <motion.p 
-                  className="text-lg text-white leading-relaxed max-w-2xl mx-auto"
+                  className="about-body text-white leading-relaxed max-w-2xl mx-auto"
+                  style={{
+                    fontSize: windowWidth < 640 ? '0.875rem' : windowWidth < 768 ? '1rem' : '1.125rem'
+                  }}
                   initial={{ x: typeof window !== 'undefined' ? window.innerWidth : 2000, opacity: 0 }}
                   animate={aboutCurtainOpen ? {
                     x: 0,
@@ -342,9 +425,19 @@ export default function App() {
       </div>
 
       {/* Archive Section */}
-      <SectionTransition id="archive" className="relative min-h-screen flex flex-col items-center justify-center py-20">
+      <SectionTransition id="archive" className="relative min-h-screen flex flex-col items-center justify-center archive-section"
+                         style={{
+                           paddingTop: windowWidth < 768 ? '2rem' : windowWidth < 1024 ? '3rem' : '5rem',
+                           paddingBottom: windowWidth < 768 ? '2rem' : windowWidth < 1024 ? '3rem' : '5rem'
+                         }}>
         <motion.h2 
-          className="text-[12rem] leading-[0.85] mb-16 text-[#2E1510] lowercase text-center"
+          className="archive-title leading-[0.85] text-[#2E1510] lowercase text-center"
+          style={{
+            fontSize: windowWidth < 640 ? '4rem' : windowWidth < 768 ? '6rem' : windowWidth < 1024 ? '8rem' : windowWidth < 1280 ? '10rem' : '12rem',
+            marginBottom: windowWidth < 640 ? '2rem' : windowWidth < 768 ? '2rem' : windowWidth < 1024 ? '3rem' : '4rem',
+            paddingLeft: '1rem',
+            paddingRight: '1rem'
+          }}
           initial={{ opacity: 0, y: -20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -352,131 +445,25 @@ export default function App() {
         >
           archive
         </motion.h2>
-        <ArchiveCarousel resetTrigger={currentSection} />
+        {showArchive ? (
+          <Suspense
+            fallback={
+              <div className="w-full min-h-[60vh] flex items-center justify-center" aria-hidden="true">
+                <div className="h-8 w-8 rounded-full border-2 border-[#2E1510]/30 border-t-[#ED2800] animate-spin" />
+              </div>
+            }
+          >
+            <ArchiveCarousel resetTrigger={currentSection} />
+          </Suspense>
+        ) : (
+          <div className="min-h-[40vh] w-full" aria-hidden="true" />
+        )}
       </SectionTransition>
 
-      {/* Contact Us Section */}
-      <SectionTransition id="contact" className="relative min-h-screen flex items-center justify-center py-20">
-        <div className="relative z-10 px-4 max-w-6xl w-full">
-          {/* Animated Title */}
-          <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: -50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-[12rem] leading-[0.85] text-[#FCD478] mb-4 lowercase">
-              let's connect
-            </h2>
-          </motion.div>
+      <ContactSection />
 
-          {/* Main Content Grid */}
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Email Card */}
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              viewport={{ once: true }}
-              className="group"
-            >
-              <div className="relative h-full bg-gradient-to-br from-[#FCD478]/20 to-[#ED2800]/20 p-8 rounded-2xl border-2 border-[#FCD478] hover:border-[#ED2800] transition-colors duration-300 overflow-hidden">
-                {/* Animated background circle */}
-                <div className="absolute -top-20 -right-20 w-64 h-64 bg-[#ED2800]/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500" style={{ willChange: 'transform' }}></div>
-                
-                <div className="relative z-10">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 bg-[#ED2800] rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform duration-300" style={{ willChange: 'transform' }}>
-                      <Mail className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-3xl text-[#FCD478]">Email Us</h3>
-                  </div>
-                  <p className="text-white text-lg mb-4">For bookings, collaborations, or inquiries</p>
-                  <a 
-                    href="mailto:info@housecollective.com" 
-                    className="text-2xl text-[#ED2800] hover:text-[#FCD478] transition-colors duration-300 break-all"
-                  >
-                    info@housecollective.com
-                  </a>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Social Media Card */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              viewport={{ once: true }}
-              className="group"
-            >
-              <div className="relative h-full bg-gradient-to-br from-[#ED2800]/20 to-[#FCD478]/20 p-8 rounded-2xl border-2 border-[#FCD478] hover:border-[#ED2800] transition-colors duration-300 overflow-hidden">
-                {/* Animated background circle */}
-                <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-[#FCD478]/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500" style={{ willChange: 'transform' }}></div>
-                
-                <div className="relative z-10">
-                  <h3 className="text-3xl text-[#FCD478] mb-6">Follow The Vibe</h3>
-                  <p className="text-white text-lg mb-8">Stay connected on social media</p>
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* Instagram */}
-                    <a
-                      href="https://www.instagram.com/takeone.collective/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex flex-col items-center gap-3 p-4 bg-[#220b04]/40 rounded-xl border border-[#FCD478]/30 hover:border-[#ED2800] hover:bg-[#ED2800]/20 hover:scale-105 transition-all duration-200"
-                      style={{ willChange: 'transform' }}
-                    >
-                      <Instagram className="w-8 h-8 text-[#FCD478]" />
-                      <span className="text-white text-sm">Instagram</span>
-                    </a>
-
-                    {/* SoundCloud */}
-                    <a
-                      href="#"
-                      className="flex flex-col items-center gap-3 p-4 bg-[#220b04]/40 rounded-xl border border-[#FCD478]/30 hover:border-[#ED2800] hover:bg-[#ED2800]/20 hover:scale-105 transition-all duration-200"
-                      style={{ willChange: 'transform' }}
-                    >
-                      <Music className="w-8 h-8 text-[#FCD478]" />
-                      <span className="text-white text-sm">SoundCloud</span>
-                    </a>
-
-                    {/* WhatsApp */}
-                    <a
-                      href="https://wa.me/1234567890"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex flex-col items-center gap-3 p-4 bg-[#220b04]/40 rounded-xl border border-[#FCD478]/30 hover:border-[#ED2800] hover:bg-[#ED2800]/20 hover:scale-105 transition-all duration-200"
-                      style={{ willChange: 'transform' }}
-                    >
-                      <MessageCircle className="w-8 h-8 text-[#FCD478]" />
-                      <span className="text-white text-sm">WhatsApp</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Bottom CTA */}
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            viewport={{ once: true }}
-            className="text-center mt-16"
-          >
-            <p className="text-2xl text-white max-w-2xl mx-auto leading-relaxed">
-              Join us on the journey through sound, art, and culture
-            </p>
-          </motion.div>
-        </div>
-      </SectionTransition>
-
-      {/* Footer */}
       <footer className="bg-[#2E1510] border-t-2 border-[#FCD478] py-8 text-center">
-        <p className="text-white">© 2025 House Music Collective. All rights reserved.</p>
+        <p className="text-white">© 2025 TakeOne Collective. All rights reserved.</p>
       </footer>
     </div>
   );

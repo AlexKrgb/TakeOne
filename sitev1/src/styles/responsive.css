@@ -1,0 +1,389 @@
+/* Responsive styles for mobile devices */
+
+html,
+body {
+  background-color: #220b04;
+  overscroll-behavior-y: none;
+  transition: background-color 700ms ease-in-out;
+}
+
+/* Performance: skip rendering off-screen sections until needed */
+#home,
+#next-event,
+#about,
+#archive,
+#contact {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 100vh;
+}
+
+.hero-bg-image {
+  will-change: opacity;
+  transform: translateZ(0);
+}
+
+.hero-bg-img {
+  transform: translateZ(0) scale(1.08);
+  object-position: center;
+}
+
+.hero-bg-soften {
+  background:
+    rgba(34, 11, 4, 0.2),
+    linear-gradient(to right, rgba(34, 11, 4, 0.35) 0%, transparent 20%),
+    linear-gradient(to left, rgba(34, 11, 4, 0.35) 0%, transparent 20%);
+  pointer-events: none;
+}
+
+.about-scroll-layer {
+  will-change: transform, opacity;
+}
+
+.vinyl-logo-spin {
+  animation: vinyl-spin 4s linear infinite;
+}
+
+@keyframes vinyl-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.typewriter-cursor-blink {
+  animation: cursor-blink 0.8s step-end infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vinyl-logo-spin,
+  .typewriter-cursor-blink {
+    animation: none;
+  }
+}
+
+/* Base styles */
+.hero-logo {
+  top: 2rem;
+  left: 2rem;
+}
+
+.hero-menu {
+  top: 2rem;
+  right: 2rem;
+}
+
+.typewriter-container {
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+.about-section {
+  padding-left: 4rem;
+  padding-right: 4rem;
+}
+
+/* Hero Section */
+@media (max-width: 767px) {
+  .hero-bg-image {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  .hero-logo {
+    top: 1rem !important;
+    left: 1rem !important;
+  }
+  
+  .hero-menu {
+    top: 1rem !important;
+    right: 1rem !important;
+  }
+  
+  .typewriter-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* About Us Section */
+@media (max-width: 639px) {
+  .about-section {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  
+  .about-title {
+    font-size: 4rem !important;
+  }
+  
+  .about-button {
+    width: 4rem !important;
+    height: 4rem !important;
+    border-width: 2px !important;
+  }
+  
+  .about-button-text {
+    font-size: 2.5rem !important;
+  }
+  
+  .about-logo-container {
+    width: 100% !important;
+  }
+  
+  .about-logo {
+    max-width: 200px !important;
+  }
+  
+  .about-headline {
+    font-size: 1.125rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .about-body {
+    font-size: 0.875rem !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .about-title {
+    font-size: 6rem !important;
+  }
+  
+  .about-button {
+    width: 5rem !important;
+    height: 5rem !important;
+  }
+  
+  .about-button-text {
+    font-size: 3rem !important;
+  }
+  
+  .about-logo {
+    max-width: 300px !important;
+  }
+  
+  .about-headline {
+    font-size: 1.25rem !important;
+  }
+  
+  .about-body {
+    font-size: 1rem !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .about-section {
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+  }
+  
+  .about-title {
+    font-size: 8rem !important;
+  }
+  
+  .about-button {
+    width: 6rem !important;
+    height: 6rem !important;
+  }
+  
+  .about-button-text {
+    font-size: 3.75rem !important;
+  }
+  
+  .about-headline {
+    font-size: 1.5rem !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .about-title {
+    font-size: 10rem !important;
+  }
+  
+  .about-button {
+    width: 8rem !important;
+    height: 8rem !important;
+  }
+  
+  .about-button-text {
+    font-size: 4.5rem !important;
+  }
+  
+  .about-headline {
+    font-size: 1.875rem !important;
+  }
+}
+
+/* Archive Section */
+@media (max-width: 639px) {
+  .archive-section {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+  
+  .archive-title {
+    font-size: 4rem !important;
+    margin-bottom: 2rem !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .archive-title {
+    font-size: 6rem !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .archive-section {
+    padding-top: 3rem !important;
+    padding-bottom: 3rem !important;
+  }
+  
+  .archive-title {
+    font-size: 8rem !important;
+    margin-bottom: 3rem !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .archive-title {
+    font-size: 10rem !important;
+  }
+}
+
+/* Footer */
+@media (max-width: 767px) {
+  .footer {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .footer-text {
+    font-size: 0.875rem !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .footer {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+}
+
+/* Typewriter Effect */
+@media (max-width: 639px) {
+  .typewriter-text {
+    font-size: 1.875rem !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .typewriter-cursor {
+    width: 2px !important;
+    height: 2rem !important;
+    margin-left: 0.25rem !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .typewriter-text {
+    font-size: 2.25rem !important;
+  }
+  
+  .typewriter-cursor {
+    height: 3rem !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .typewriter-text {
+    font-size: 3rem !important;
+  }
+  
+  .typewriter-cursor {
+    height: 4rem !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .typewriter-text {
+    font-size: 3.75rem !important;
+  }
+  
+  .typewriter-cursor {
+    height: 6rem !important;
+  }
+}
+
+/* Menu */
+@media (max-width: 767px) {
+  .menu-button {
+    padding: 0.375rem 0.75rem !important;
+    font-size: 0.875rem !important;
+  }
+  
+  .menu-nav {
+    padding-left: 2rem !important;
+    gap: 1rem !important;
+  }
+  
+  .menu-item {
+    font-size: 1.5rem !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .menu-nav {
+    padding-left: 3rem !important;
+    gap: 1.5rem !important;
+  }
+  
+  .menu-item {
+    font-size: 1.875rem !important;
+  }
+}
+
+/* Vinyl Logo */
+@media (max-width: 767px) {
+  .vinyl-logo {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .vinyl-logo {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+}
+
+/* Event Cards */
+@media (max-width: 639px) {
+  .event-card {
+    width: 280px !important;
+    height: 400px !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .event-card {
+    width: 320px !important;
+    height: 450px !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .event-card {
+    width: 320px !important;
+    height: 500px !important;
+  }
+}
+

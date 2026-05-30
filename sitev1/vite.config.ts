@@ -54,6 +54,18 @@
     build: {
       target: 'esnext',
       outDir: 'dist',
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('maplibre-gl')) {
+              return 'maplibre';
+            }
+            if (id.includes('node_modules/motion')) {
+              return 'motion';
+            }
+          },
+        },
+      },
     },
     server: {
       port: 3000,

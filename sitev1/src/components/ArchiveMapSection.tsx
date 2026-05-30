@@ -76,7 +76,7 @@ const mockEvents: PastEvent[] = [
     date: 'September 19, 2025',
     venue: 'Zoona',
     position: venues['zoona'],
-    poster: '/images/events/event-zoona-3/poster.mp4',
+    poster: '/images/events/event-zoona-3/poster.webp',
     color: 'magenta',
   },
   {
