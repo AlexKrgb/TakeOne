@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface TentMenuProps {
@@ -48,12 +48,30 @@ export function TentMenu({ onNavigate, bgColor }: TentMenuProps) {
 
   const menuColors = getMenuColors(bgColor);
 
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1920);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
-    <div className="fixed top-8 right-8 z-50">
+    <div className="fixed z-50"
+         style={{
+           top: windowWidth < 768 ? '1rem' : '2rem',
+           right: windowWidth < 768 ? '1rem' : '2rem'
+         }}>
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="px-4 py-2 flex items-center justify-center bg-transparent text-[#ED2800] hover:opacity-70 transition-all duration-300 uppercase"
+          className="menu-button flex items-center justify-center bg-transparent text-[#ED2800] hover:opacity-70 transition-all duration-300 uppercase"
+          style={{
+            padding: windowWidth < 768 ? '0.375rem 0.75rem' : '0.5rem 1rem',
+            fontSize: windowWidth < 768 ? '0.875rem' : '1rem'
+          }}
           aria-label="Open menu"
         >
           [Menu]
@@ -85,15 +103,25 @@ export function TentMenu({ onNavigate, bgColor }: TentMenuProps) {
             {/* Close button in top right */}
             <button
               onClick={() => setIsOpen(false)}
-              className="fixed top-8 right-8 px-4 py-2 flex items-center justify-center bg-transparent hover:opacity-70 transition-all duration-300 uppercase"
-              style={{ color: menuColors.text }}
+              className="fixed menu-button flex items-center justify-center bg-transparent hover:opacity-70 transition-all duration-300 uppercase"
+              style={{ 
+                color: menuColors.text,
+                top: windowWidth < 768 ? '1rem' : '2rem',
+                right: windowWidth < 768 ? '1rem' : '2rem',
+                padding: windowWidth < 768 ? '0.375rem 0.75rem' : '0.5rem 1rem',
+                fontSize: windowWidth < 768 ? '0.875rem' : '1rem'
+              }}
               aria-label="Close menu"
             >
               [Close]
             </button>
 
             <motion.nav 
-              className="flex flex-col items-start justify-center h-full gap-8 pl-16"
+              className="menu-nav flex flex-col items-start justify-center h-full"
+              style={{
+                paddingLeft: windowWidth < 640 ? '2rem' : windowWidth < 768 ? '2rem' : windowWidth < 1024 ? '3rem' : '4rem',
+                gap: windowWidth < 640 ? '1rem' : windowWidth < 768 ? '1rem' : windowWidth < 1024 ? '1.5rem' : '2rem'
+              }}
               initial="hidden"
               animate="visible"
               variants={{
@@ -117,8 +145,11 @@ export function TentMenu({ onNavigate, bgColor }: TentMenuProps) {
                     ease: "easeOut"
                   }}
                   onClick={() => handleNavigate(item.id)}
-                  className="text-4xl hover:scale-110 transition-transform duration-200 uppercase"
-                  style={{ color: menuColors.text }}
+                  className="menu-item hover:scale-110 transition-transform duration-200 uppercase"
+                  style={{ 
+                    color: menuColors.text,
+                    fontSize: windowWidth < 640 ? '1.5rem' : windowWidth < 768 ? '1.5rem' : windowWidth < 1024 ? '1.875rem' : '2.25rem'
+                  }}
                 >
                   {item.label}
                 </motion.button>

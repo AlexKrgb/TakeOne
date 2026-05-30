@@ -124,7 +124,13 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    cursor: none !important;
+  }
+
+  /* Hide cursor only on desktop (non-touch devices) */
+  @media (hover: hover) and (pointer: fine) {
+    * {
+      cursor: none !important;
+    }
   }
 
   body {

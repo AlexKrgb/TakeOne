@@ -1,12 +1,17 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, memo, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, X, Grid3x3, List, Play, Pause, Calendar, Filter } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { ArchiveStats } from './ArchiveStats';
-import { VenueMap } from './VenueMap';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+
+const VenueMap = lazy(() =>
+  import('./VenueMap').then((module) => ({
+    default: module.VenueMap,
+  }))
+);
 
 interface Event {
   id: string;
@@ -129,7 +134,7 @@ const events: Event[] = [
     year: 2025,
     date: 'September 19, 2025',
     sets: 0,
-    poster: '/images/events/event-zoona-3/poster.mp4',
+    poster: '/images/events/event-zoona-3/poster.webp',
     venue: 'Zoona',
     venueAddress: 'Via Vincenzo Lancia, 1, 39100 Bolzano BZ',
     description: 'Event description to be updated.',
@@ -257,7 +262,10 @@ interface ArchiveCarouselProps {
   resetTrigger?: string;
 }
 
-export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
+// Global image cache to prevent reloads
+const imageCache = new Map<string, HTMLImageElement>();
+
+export const ArchiveCarousel = memo(function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('carousel');
@@ -268,6 +276,15 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1920);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Reset all state when leaving the archive section
   useEffect(() => {
@@ -285,6 +302,7 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
   }, [resetTrigger]);
   
   const carouselRef = useRef<HTMLDivElement>(null);
+  const carouselContainerRef = useRef<HTMLDivElement>(null);
   const autoScrollIntervalRef = useRef<number | null>(null);
   const carouselSectionRef = useRef<HTMLDivElement>(null);
   const [isCarouselInView, setIsCarouselInView] = useState(false);
@@ -363,6 +381,61 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
     }
   };
 
+  // Memoize card width calculation to prevent flickering
+  const cardWidthPx = useMemo(() => {
+    if (windowWidth < 640) return 280;
+    if (windowWidth < 768) return 320;
+    return 320;
+  }, [windowWidth]);
+
+  // Memoize transform calculation
+  const carouselTransform = useMemo(() => {
+    const gap = 24; // 1.5rem = 24px
+    const offset = currentIndex * (cardWidthPx + gap);
+    return `translate3d(-${offset}px, 0, 0)`;
+  }, [currentIndex, cardWidthPx]);
+
+  // Update transform using ref to avoid re-renders
+  useEffect(() => {
+    if (carouselContainerRef.current && viewMode === 'carousel') {
+      const gap = 24;
+      const offset = currentIndex * (cardWidthPx + gap);
+      const transform = `translate3d(-${offset}px, 0, 0)`;
+      carouselContainerRef.current.style.transform = transform;
+    }
+  }, [currentIndex, cardWidthPx, viewMode]);
+
+  // Preload all carousel images to prevent flickering and cache them globally
+  useEffect(() => {
+    if (viewMode === 'carousel' && filteredEvents.length > 0) {
+      filteredEvents.forEach((event) => {
+        // Check if already cached and loaded
+        const cachedImg = imageCache.get(event.poster);
+        if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+          return;
+        }
+        
+        const img = new Image();
+        // Cache the image globally before setting src
+        imageCache.set(event.poster, img);
+        img.src = event.poster;
+        // Decode the image to ensure it's ready
+        img.decode().catch(() => {
+          // If decode fails, still mark as loaded if complete
+          if (img.complete) {
+            // Image is loaded even if decode failed
+          }
+        });
+      });
+    }
+  }, [viewMode, filteredEvents]);
+
+  // Stable callback for event selection
+  const handleEventSelect = useCallback((event: Event) => {
+    setSelectedEvent(event);
+    setSelectedGalleryIndex(0);
+  }, []);
+
   const handleYearClick = (year: string) => {
     setSelectedYear(year);
   };
@@ -382,47 +455,231 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
     setSelectedVenue('all');
   };
 
-  const EventCard = ({ event, index }: { event: Event; index: number }) => {
-    const isCarousel = viewMode === 'carousel';
+  const EventCard = memo(({ event, index, isCarousel, windowWidth, onSelect }: { 
+    event: Event; 
+    index: number;
+    isCarousel: boolean;
+    windowWidth: number;
+    onSelect: (event: Event) => void;
+  }) => {
     const [isHovered, setIsHovered] = useState(false);
+    const [imageLoaded, setImageLoaded] = useState(() => {
+      // Check if image is already cached and loaded on initial render
+      if (event.poster.toLowerCase().endsWith('.mp4') || 
+          event.poster.toLowerCase().endsWith('.webm') || 
+          event.poster.toLowerCase().endsWith('.mov')) {
+        return true;
+      }
+      const cachedImg = imageCache.get(event.poster);
+      return !!(cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0);
+    });
+    const imgRef = useRef<HTMLImageElement | null>(null);
+    const imageSrcRef = useRef<string>(event.poster);
+    const hasInitializedRef = useRef(false);
+    const loadingCheckRef = useRef<string | null>(null);
+    
+    const cardWidth = useMemo(() => {
+      if (!isCarousel) return '100%';
+      return windowWidth < 640 ? '280px' : windowWidth < 768 ? '320px' : '320px';
+    }, [isCarousel, windowWidth]);
+    
+    const cardHeight = useMemo(() => {
+      return windowWidth < 640 ? '480px' : windowWidth < 768 ? '520px' : '500px';
+    }, [windowWidth]);
+
+    const isVideo = useMemo(() => {
+      const poster = event.poster.toLowerCase();
+      return poster.endsWith('.mp4') || poster.endsWith('.webm') || poster.endsWith('.mov');
+    }, [event.poster]);
+
+    // Pre-check if image is already loaded - only run once per image
+    useEffect(() => {
+      // Skip if we've already checked this exact image
+      if (loadingCheckRef.current === event.poster && hasInitializedRef.current) {
+        return;
+      }
+      
+      // Check if image actually changed
+      const imageChanged = imageSrcRef.current !== event.poster;
+      
+      // Update refs
+      imageSrcRef.current = event.poster;
+      loadingCheckRef.current = event.poster;
+      
+      if (isVideo) {
+        setImageLoaded(true);
+        hasInitializedRef.current = true;
+        return;
+      }
+      
+      // Check global cache first
+      const cachedImg = imageCache.get(event.poster);
+      if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+        setImageLoaded(true);
+        hasInitializedRef.current = true;
+        return;
+      }
+      
+      // Check if image is already in browser cache
+      const img = cachedImg || new Image();
+      if (!cachedImg) {
+        imageCache.set(event.poster, img);
+      }
+      
+      if (img.complete && img.naturalWidth > 0) {
+        setImageLoaded(true);
+        hasInitializedRef.current = true;
+        return;
+      }
+      
+      // Reset loading state only if image actually changed
+      if (imageChanged) {
+        setImageLoaded(false);
+        hasInitializedRef.current = false;
+      }
+      
+      const handleLoad = () => {
+        if (img.src === event.poster) {
+          setImageLoaded(true);
+          hasInitializedRef.current = true;
+        }
+      };
+      
+      const handleError = () => {
+        if (img.src === event.poster) {
+          setImageLoaded(true);
+          hasInitializedRef.current = true;
+        }
+      };
+      
+      img.onload = handleLoad;
+      img.onerror = handleError;
+      
+      if (!cachedImg || !img.complete) {
+        img.src = event.poster;
+      } else {
+        // Image was cached but check completed, trigger load handler
+        handleLoad();
+      }
+      
+      // Cleanup
+      return () => {
+        if (img.onload === handleLoad) img.onload = null;
+        if (img.onerror === handleError) img.onerror = null;
+      };
+    }, [event.poster, isVideo]); // Only depend on poster and isVideo
 
     return (
       <div
-        className={`${isCarousel ? 'flex-shrink-0 w-80' : 'w-full'} cursor-pointer group`}
-        onClick={() => {
-          setSelectedEvent(event);
-          setSelectedGalleryIndex(0);
+        className={`${isCarousel ? 'flex-shrink-0 event-card' : 'w-full'} cursor-pointer group`}
+        style={{
+          width: cardWidth,
+          height: cardHeight,
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+          willChange: isCarousel ? 'transform' : 'auto'
         }}
+        onClick={() => onSelect(event)}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className={`bg-[#2E1510] rounded-2xl overflow-hidden shadow-lg transition-shadow duration-300 border-2 transition-colors ${
+        <div className={`bg-[#2E1510] rounded-2xl overflow-hidden shadow-lg border-2 h-full flex flex-col ${
           isHovered ? 'shadow-2xl border-[#ED2800]' : 'border-[#2E1510]'
-        }`}>
-          <div className="relative h-64 overflow-hidden">
-            <div className="w-full h-full overflow-hidden">
-              {event.poster.toLowerCase().endsWith('.mp4') || event.poster.toLowerCase().endsWith('.webm') || event.poster.toLowerCase().endsWith('.mov') ? (
+        }`}
+        style={{
+          transition: 'box-shadow 0.3s ease, border-color 0.3s ease'
+        }}>
+          <div className="relative h-64 flex-shrink-0 overflow-hidden" style={{
+            transform: 'translateZ(0)',
+            WebkitTransform: 'translateZ(0)',
+            willChange: 'auto',
+            isolation: 'isolate'
+          }}>
+            <div className="w-full h-full overflow-hidden" style={{
+              transform: 'translateZ(0)',
+              WebkitTransform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              position: 'relative'
+            }}>
+              {isVideo ? (
                 <video
                   src={event.poster}
                   className="w-full h-full object-cover"
                   style={{ 
-                    pointerEvents: 'none'
+                    pointerEvents: 'none',
+                    display: 'block',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    transform: 'translateZ(0)',
+                    WebkitTransform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                    willChange: 'auto',
+                    opacity: 1
                   }}
                   autoPlay
                   loop
                   muted
                   playsInline
+                  preload="auto"
                 />
               ) : (
                 <img
+                  ref={imgRef}
                   src={event.poster}
                   alt={event.title}
-                  loading="lazy"
+                  loading="eager"
                   className="w-full h-full object-cover"
                   style={{ 
-                    pointerEvents: 'none'
+                    pointerEvents: 'none',
+                    display: 'block',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    transform: 'translateZ(0)',
+                    WebkitTransform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                    imageRendering: 'auto',
+                    WebkitImageRendering: 'auto',
+                    willChange: 'auto',
+                    opacity: imageLoaded ? 1 : 0,
+                    transition: imageLoaded ? 'opacity 0.1s ease-in' : 'none',
+                    contentVisibility: 'auto'
+                  }}
+                  decoding="async"
+                  onLoad={(e) => {
+                    const img = e.currentTarget;
+                    // Only update if not already loaded to prevent flickering
+                    if (!imageLoaded) {
+                      // Use requestAnimationFrame to batch the update
+                      requestAnimationFrame(() => {
+                        setImageLoaded(true);
+                        // Force GPU layer and prevent reload
+                        img.style.transform = 'translateZ(0)';
+                        img.style.willChange = 'auto';
+                      });
+                    }
+                  }}
+                  onError={() => {
+                    if (!imageLoaded) {
+                      setImageLoaded(true);
+                    }
                   }}
                 />
+              )}
+              {!isVideo && !imageLoaded && (
+                <div className="absolute inset-0 bg-[#2E1510]/50 flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-[#FCD478] border-t-transparent rounded-full animate-spin" />
+                </div>
               )}
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-[#2E1510] to-transparent opacity-60 pointer-events-none" />
@@ -433,23 +690,64 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
             </div>
           </div>
 
-          <div className="p-6">
-            <h3 className="text-2xl text-white mb-2">{event.title}</h3>
-            <p className="text-[#FCD478] mb-1">{event.date}</p>
-            <p className="text-white/60 mb-3">{countDJs(event.djs)} Sets • {event.venue}</p>
-            <div className="flex flex-wrap gap-2">
-              {event.djs.slice(0, 3).map(dj => (
-                <span key={dj} className="text-xs text-white/40">{dj}</span>
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden"
+               style={{
+                 padding: windowWidth < 640 ? '0.75rem' : windowWidth < 768 ? '1rem' : '1.5rem'
+               }}>
+            <h3 className="text-white mb-1 line-clamp-2"
+                style={{
+                  fontSize: windowWidth < 640 ? '0.875rem' : windowWidth < 768 ? '1rem' : '1.5rem',
+                  lineHeight: '1.3'
+                }}>
+              {event.title}
+            </h3>
+            <p className="text-[#FCD478] mb-0.5"
+               style={{
+                 fontSize: windowWidth < 640 ? '0.75rem' : windowWidth < 768 ? '0.875rem' : '1rem'
+               }}>
+              {event.date}
+            </p>
+            <p className="text-white/60 mb-2"
+               style={{
+                 fontSize: windowWidth < 640 ? '0.625rem' : windowWidth < 768 ? '0.75rem' : '0.875rem'
+               }}>
+              {countDJs(event.djs)} Sets • {event.venue}
+            </p>
+            <div className="flex flex-wrap gap-1 mt-auto overflow-y-auto"
+                 style={{
+                   maxHeight: windowWidth < 640 ? '3rem' : windowWidth < 768 ? '3.5rem' : 'auto'
+                 }}>
+              {event.djs.slice(0, windowWidth < 640 ? 4 : windowWidth < 768 ? 5 : 3).map(dj => (
+                <span key={dj} className="text-white/40"
+                      style={{
+                        fontSize: windowWidth < 640 ? '0.625rem' : windowWidth < 768 ? '0.75rem' : '0.75rem'
+                      }}>
+                  {dj}
+                </span>
               ))}
-              {event.djs.length > 3 && (
-                <span className="text-xs text-white/40">+{event.djs.length - 3} more</span>
+              {event.djs.length > (windowWidth < 640 ? 4 : windowWidth < 768 ? 5 : 3) && (
+                <span className="text-white/40"
+                      style={{
+                        fontSize: windowWidth < 640 ? '0.625rem' : windowWidth < 768 ? '0.75rem' : '0.75rem'
+                      }}>
+                  +{event.djs.length - (windowWidth < 640 ? 4 : windowWidth < 768 ? 5 : 3)} more
+                </span>
               )}
             </div>
           </div>
         </div>
       </div>
     );
-  };
+  }, (prevProps, nextProps) => {
+    // Custom comparison to prevent unnecessary re-renders
+    return (
+      prevProps.event.id === nextProps.event.id &&
+      prevProps.event.poster === nextProps.event.poster &&
+      prevProps.isCarousel === nextProps.isCarousel &&
+      prevProps.windowWidth === nextProps.windowWidth &&
+      prevProps.index === nextProps.index
+    );
+  });
 
   return (
     <div className="w-full">
@@ -462,12 +760,21 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
       />
 
       {/* Venue Map */}
-      <VenueMap 
-        venues={venues} 
-        onVenueClick={handleVenueClick} 
-        resetTrigger={resetTrigger}
-        closeOnCarouselView={isCarouselInView}
-      />
+      <Suspense
+        fallback={
+          <div
+            className="relative mx-auto rounded-2xl overflow-hidden border-2 border-[#2E1510] mb-8 bg-[#2E1510]/10 animate-pulse"
+            style={{ width: '70%', maxWidth: '70%', height: '600px', minHeight: '600px' }}
+          />
+        }
+      >
+        <VenueMap
+          venues={venues}
+          onVenueClick={handleVenueClick}
+          resetTrigger={resetTrigger}
+          closeOnCarouselView={isCarouselInView}
+        />
+      </Suspense>
 
       {/* Year Navigator */}
       <div ref={carouselSectionRef} className="flex flex-wrap justify-center gap-3 mb-8">
@@ -582,7 +889,7 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
           <p className="text-2xl text-[#2E1510]">No events found matching your filters</p>
         </div>
       ) : viewMode === 'carousel' ? (
-        <div className="relative w-full max-w-7xl mx-auto px-4">
+        <div className="relative w-full px-4">
           <button
             onClick={() => scroll('left')}
             className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-[#2E1510] text-white flex items-center justify-center hover:bg-[#2E1510]/80 transition-colors"
@@ -599,15 +906,30 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
             <ChevronRight className="w-6 h-6" />
           </button>
 
-          <div className="overflow-hidden px-12 py-8">
+          <div className="overflow-hidden w-full px-12 py-8">
             <div 
-              className="flex gap-6 transition-transform duration-500 ease-in-out"
+              ref={carouselContainerRef}
+              className="flex gap-6"
               style={{
-                transform: `translateX(calc(-${currentIndex} * (20rem + 1.5rem)))`
+                transform: carouselTransform,
+                transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                willChange: 'transform',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                perspective: '1000px',
+                WebkitPerspective: '1000px',
+                contain: 'layout style paint'
               }}
             >
               {filteredEvents.map((event, index) => (
-                <EventCard key={event.id} event={event} index={index} />
+                <EventCard 
+                  key={event.id} 
+                  event={event} 
+                  index={index}
+                  isCarousel={viewMode === 'carousel'}
+                  windowWidth={windowWidth}
+                  onSelect={handleEventSelect}
+                />
               ))}
             </div>
           </div>
@@ -631,7 +953,14 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 max-w-7xl mx-auto">
           {filteredEvents.map((event, index) => (
-            <EventCard key={event.id} event={event} index={index} />
+            <EventCard 
+              key={event.id} 
+              event={event} 
+              index={index}
+              isCarousel={false}
+              windowWidth={windowWidth}
+              onSelect={handleEventSelect}
+            />
           ))}
         </div>
       )}
@@ -643,7 +972,13 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#220b04]/95 backdrop-blur-md"
+            className="fixed inset-0 z-[100] flex bg-[#220b04]/95 backdrop-blur-md"
+            style={{
+              alignItems: windowWidth < 768 ? 'flex-start' : 'center',
+              justifyContent: 'center',
+              padding: windowWidth < 768 ? '0.5rem' : '1rem',
+              paddingTop: windowWidth < 768 ? '4rem' : '1rem'
+            }}
             onClick={() => setSelectedEvent(null)}
           >
             <motion.div
@@ -651,24 +986,40 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-[#FCD478] rounded-3xl shadow-2xl"
+              className="relative w-full overflow-y-auto bg-[#FCD478] shadow-2xl"
+              style={{
+                maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '95%' : '80rem',
+                maxHeight: windowWidth < 768 ? 'calc(95vh - 4rem)' : '90vh',
+                borderRadius: windowWidth < 768 ? '1rem' : '1.5rem',
+                marginTop: windowWidth < 768 ? '0' : '0'
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full bg-[#2E1510] text-white flex items-center justify-center hover:bg-[#ED2800] transition-colors"
+                className="absolute z-10 rounded-full bg-[#2E1510] text-white flex items-center justify-center hover:bg-[#ED2800] transition-colors"
+                style={{
+                  top: windowWidth < 768 ? '0.75rem' : '1.5rem',
+                  right: windowWidth < 768 ? '0.75rem' : '1.5rem',
+                  width: windowWidth < 768 ? '2rem' : '3rem',
+                  height: windowWidth < 768 ? '2rem' : '3rem'
+                }}
                 aria-label="Close modal"
               >
-                <X className="w-6 h-6" />
+                <X style={{ width: windowWidth < 768 ? '1rem' : '1.5rem', height: windowWidth < 768 ? '1rem' : '1.5rem' }} />
               </button>
 
-              <div className="p-8 md:p-12">
-                {/* Poster container - 650px max width */}
+              <div style={{
+                padding: windowWidth < 640 ? '1rem' : windowWidth < 768 ? '1.5rem' : windowWidth < 1024 ? '2rem' : '3rem'
+              }}>
+                {/* Poster container */}
                 <div 
-                  className="relative mx-auto rounded-2xl overflow-hidden mb-8 shadow-xl bg-[#2E1510]/20 transition-all duration-300 ease-out cursor-pointer" 
+                  className="relative mx-auto rounded-xl overflow-hidden shadow-xl bg-[#2E1510]/20 transition-all duration-300 ease-out cursor-pointer" 
                   style={{ 
-                    maxWidth: '650px', 
-                    width: 'fit-content'
+                    maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '100%' : '650px',
+                    width: 'fit-content',
+                    marginBottom: windowWidth < 768 ? '1.5rem' : '2rem',
+                    borderRadius: windowWidth < 768 ? '0.75rem' : '1rem'
                   }}
                   onClick={() => setFullScreenImage(selectedEvent.poster)}
                 >
@@ -677,8 +1028,8 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
                     alt={selectedEvent.title}
                     className="object-contain block"
                     style={{ 
-                      maxWidth: '650px',
-                      maxHeight: '650px',
+                      maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '100%' : '650px',
+                      maxHeight: windowWidth < 640 ? '300px' : windowWidth < 768 ? '400px' : '650px',
                       width: 'auto',
                       height: 'auto',
                       display: 'block',
@@ -687,59 +1038,78 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
                   />
                 </div>
 
-                <div className="mb-8">
-                  <div className="flex flex-wrap gap-2 mb-4">
+                <div style={{ marginBottom: windowWidth < 768 ? '1.5rem' : '2rem' }}>
+                  <div className="flex flex-wrap gap-2" style={{ marginBottom: windowWidth < 768 ? '1rem' : '1.5rem' }}>
                     {selectedEvent.genre.map(g => (
-                      <Badge key={g} className="bg-[#ED2800] text-white border-0">{g}</Badge>
+                      <Badge key={g} className="bg-[#ED2800] text-white border-0" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem' }}>{g}</Badge>
                     ))}
                   </div>
                   
-                  <h2 className="text-5xl md:text-6xl text-[#2E1510] mb-4 lowercase">
+                  <h2 className="text-[#2E1510] lowercase"
+                      style={{
+                        fontSize: windowWidth < 640 ? '1.75rem' : windowWidth < 768 ? '2.25rem' : windowWidth < 1024 ? '3rem' : '3.75rem',
+                        marginBottom: windowWidth < 768 ? '1rem' : '1.5rem',
+                        lineHeight: '1.2'
+                      }}>
                     {selectedEvent.title}
                   </h2>
                   
-                  <div className="flex flex-wrap gap-6 mb-6">
+                  <div className="flex flex-wrap" style={{ gap: windowWidth < 640 ? '1rem' : windowWidth < 768 ? '1.5rem' : '1.5rem', marginBottom: windowWidth < 768 ? '1rem' : '1.5rem' }}>
                     <div>
-                      <p className="text-sm text-[#2E1510]/60 uppercase tracking-wide mb-1">Date</p>
-                      <p className="text-xl text-[#2E1510]">{selectedEvent.date}</p>
+                      <p className="text-[#2E1510]/60 uppercase tracking-wide" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem', marginBottom: '0.25rem' }}>Date</p>
+                      <p className="text-[#2E1510]" style={{ fontSize: windowWidth < 768 ? '1rem' : '1.25rem' }}>{selectedEvent.date}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-[#2E1510]/60 uppercase tracking-wide mb-1">Venue</p>
-                      <p className="text-xl text-[#2E1510]">{selectedEvent.venue}</p>
-                      <p className="text-sm text-[#2E1510]/60">{selectedEvent.venueAddress}</p>
+                      <p className="text-[#2E1510]/60 uppercase tracking-wide" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem', marginBottom: '0.25rem' }}>Venue</p>
+                      <p className="text-[#2E1510]" style={{ fontSize: windowWidth < 768 ? '1rem' : '1.25rem' }}>{selectedEvent.venue}</p>
+                      <p className="text-[#2E1510]/60" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem' }}>{selectedEvent.venueAddress}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-[#2E1510]/60 uppercase tracking-wide mb-1">Sets</p>
-                      <p className="text-xl text-[#2E1510]">{countDJs(selectedEvent.djs)} DJ Sets</p>
+                      <p className="text-[#2E1510]/60 uppercase tracking-wide" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem', marginBottom: '0.25rem' }}>Sets</p>
+                      <p className="text-[#2E1510]" style={{ fontSize: windowWidth < 768 ? '1rem' : '1.25rem' }}>{countDJs(selectedEvent.djs)} DJ Sets</p>
                     </div>
                   </div>
                   
-                  <p className="text-lg text-[#2E1510]/80 leading-relaxed max-w-3xl mb-6">
+                  <p className="text-[#2E1510]/80 leading-relaxed max-w-3xl"
+                     style={{
+                       fontSize: windowWidth < 640 ? '0.875rem' : windowWidth < 768 ? '1rem' : '1.125rem',
+                       marginBottom: windowWidth < 768 ? '1rem' : '1.5rem'
+                     }}>
                     {selectedEvent.description}
                   </p>
 
                   <div>
-                    <p className="text-sm text-[#2E1510]/60 uppercase tracking-wide mb-3">Featured Artists</p>
+                    <p className="text-[#2E1510]/60 uppercase tracking-wide" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem', marginBottom: windowWidth < 768 ? '0.75rem' : '1rem' }}>Featured Artists</p>
                     <div className="flex flex-wrap gap-2">
                       {selectedEvent.djs.map(dj => (
-                        <Badge key={dj} className="bg-[#2E1510] text-white border-0">{dj}</Badge>
+                        <Badge key={dj} className="bg-[#2E1510] text-white border-0" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem' }}>{dj}</Badge>
                       ))}
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="text-2xl text-[#2E1510] mb-4 lowercase">photo gallery</h3>
+                  <h3 className="text-[#2E1510] lowercase"
+                      style={{
+                        fontSize: windowWidth < 640 ? '1.25rem' : windowWidth < 768 ? '1.5rem' : '1.5rem',
+                        marginBottom: windowWidth < 768 ? '1rem' : '1.5rem'
+                      }}>photo gallery</h3>
                   
-                  {/* Gallery container - 650px max width */}
-                  <div className="relative mx-auto rounded-xl overflow-hidden mb-4 shadow-lg bg-[#2E1510]/20" style={{ maxWidth: '650px', width: 'fit-content' }}>
+                  {/* Gallery container */}
+                  <div className="relative mx-auto rounded-lg overflow-hidden shadow-lg bg-[#2E1510]/20"
+                       style={{
+                         maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '100%' : '650px',
+                         width: 'fit-content',
+                         marginBottom: windowWidth < 768 ? '1rem' : '1.5rem',
+                         borderRadius: windowWidth < 768 ? '0.5rem' : '0.75rem'
+                       }}>
                     <ImageWithFallback
                       src={selectedEvent.gallery[selectedGalleryIndex]}
                       alt={`${selectedEvent.title} gallery ${selectedGalleryIndex + 1}`}
                       className="object-contain block"
                       style={{ 
-                        maxWidth: '650px',
-                        maxHeight: '650px',
+                        maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '100%' : '650px',
+                        maxHeight: windowWidth < 640 ? '300px' : windowWidth < 768 ? '400px' : '650px',
                         width: 'auto',
                         height: 'auto',
                         display: 'block'
@@ -752,32 +1122,49 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
                           onClick={() => setSelectedGalleryIndex((prev) => 
                             prev === 0 ? selectedEvent.gallery.length - 1 : prev - 1
                           )}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors z-10"
+                          className="absolute top-1/2 -translate-y-1/2 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors z-10"
+                          style={{
+                            left: windowWidth < 768 ? '0.5rem' : '1rem',
+                            width: windowWidth < 768 ? '2rem' : '2.5rem',
+                            height: windowWidth < 768 ? '2rem' : '2.5rem'
+                          }}
                         >
-                          <ChevronLeft className="w-5 h-5" />
+                          <ChevronLeft style={{ width: windowWidth < 768 ? '1rem' : '1.25rem', height: windowWidth < 768 ? '1rem' : '1.25rem' }} />
                         </button>
                         <button
                           onClick={() => setSelectedGalleryIndex((prev) => 
                             prev === selectedEvent.gallery.length - 1 ? 0 : prev + 1
                           )}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors z-10"
+                          className="absolute top-1/2 -translate-y-1/2 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors z-10"
+                          style={{
+                            right: windowWidth < 768 ? '0.5rem' : '1rem',
+                            width: windowWidth < 768 ? '2rem' : '2.5rem',
+                            height: windowWidth < 768 ? '2rem' : '2.5rem'
+                          }}
                         >
-                          <ChevronRight className="w-5 h-5" />
+                          <ChevronRight style={{ width: windowWidth < 768 ? '1rem' : '1.25rem', height: windowWidth < 768 ? '1rem' : '1.25rem' }} />
                         </button>
                       </>
                     )}
                   </div>
 
-                  <div className="flex gap-3 overflow-x-auto pb-2">
+                  <div className="flex overflow-x-auto pb-2"
+                       style={{
+                         gap: windowWidth < 768 ? '0.5rem' : '0.75rem'
+                       }}>
                     {selectedEvent.gallery.map((img, idx) => (
                       <button
                         key={idx}
                         onClick={() => setSelectedGalleryIndex(idx)}
-                        className={`flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 transition-all ${
+                        className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
                           idx === selectedGalleryIndex
                             ? 'border-[#ED2800] scale-105'
                             : 'border-[#2E1510]/30 hover:border-[#2E1510]'
                         }`}
+                        style={{
+                          width: windowWidth < 640 ? '3.5rem' : windowWidth < 768 ? '4rem' : '6rem',
+                          height: windowWidth < 640 ? '3.5rem' : windowWidth < 768 ? '4rem' : '6rem'
+                        }}
                       >
                         <ImageWithFallback
                           src={img}
@@ -801,28 +1188,44 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/95 backdrop-blur-md p-4"
-            style={{ zIndex: 99999 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/95 backdrop-blur-md"
+            style={{ 
+              zIndex: 99999,
+              padding: windowWidth < 768 ? '0.5rem' : '1rem'
+            }}
             onClick={() => setFullScreenImage(null)}
           >
             <button
               onClick={() => setFullScreenImage(null)}
-              className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors"
+              className="absolute z-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors"
+              style={{
+                top: windowWidth < 768 ? '0.75rem' : '1.5rem',
+                right: windowWidth < 768 ? '0.75rem' : '1.5rem',
+                width: windowWidth < 768 ? '2rem' : '3rem',
+                height: windowWidth < 768 ? '2rem' : '3rem'
+              }}
               aria-label="Close full screen"
             >
-              <X className="w-6 h-6" />
+              <X style={{ width: windowWidth < 768 ? '1rem' : '1.5rem', height: windowWidth < 768 ? '1rem' : '1.5rem' }} />
             </button>
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="max-w-[90vw] max-h-[90vh]"
+              style={{
+                maxWidth: windowWidth < 768 ? '95vw' : '90vw',
+                maxHeight: windowWidth < 768 ? '95vh' : '90vh'
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               {fullScreenImage.toLowerCase().endsWith('.mp4') || fullScreenImage.toLowerCase().endsWith('.webm') || fullScreenImage.toLowerCase().endsWith('.mov') ? (
                 <video
                   src={fullScreenImage}
-                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                  className="object-contain rounded-lg"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: windowWidth < 768 ? '95vh' : '90vh'
+                  }}
                   autoPlay
                   loop
                   muted
@@ -833,7 +1236,11 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
                 <img
                   src={fullScreenImage}
                   alt="Full screen"
-                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                  className="object-contain rounded-lg"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: windowWidth < 768 ? '95vh' : '90vh'
+                  }}
                 />
               )}
             </motion.div>
@@ -842,4 +1249,4 @@ export function ArchiveCarousel({ resetTrigger }: ArchiveCarouselProps) {
       </AnimatePresence>
     </div>
   );
-}
+});

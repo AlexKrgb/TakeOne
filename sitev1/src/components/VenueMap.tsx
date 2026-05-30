@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
-import maplibregl from 'maplibre-gl';
+import type { Map, Marker, MapLibreEvent } from 'maplibre-gl';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -52,7 +52,17 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
   const [selectedEvent, setSelectedEvent] = useState<VenueEvent | null>(null);
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState(0);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [selectedVenueId, setSelectedVenueId] = useState<string>('');
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1920);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Close venue panel when leaving the archive section
   useEffect(() => {
@@ -61,6 +71,7 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
       setSelectedEvent(null);
       setSelectedGalleryIndex(0);
       setSelectedEventId('');
+      setSelectedVenueId('');
       setFullScreenImage(null);
     }
   }, [resetTrigger]);
@@ -72,115 +83,133 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
       setSelectedEvent(null);
       setSelectedGalleryIndex(0);
       setSelectedEventId('');
+      setSelectedVenueId('');
     }
   }, [closeOnCarouselView]);
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<maplibregl.Map | null>(null);
-  const markers = useRef<maplibregl.Marker[]>([]);
+  const map = useRef<Map | null>(null);
+  const markers = useRef<Marker[]>([]);
+  const maplibreRef = useRef<typeof import('maplibre-gl').default | null>(null);
+  const [shouldLoadMap, setShouldLoadMap] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
 
-  // Collect all events from all venues
-  const allEvents = venues.flatMap(venue => 
-    (venue.events || []).map(event => ({
-      ...event,
-      venueName: venue.name,
-      venuePosition: venue.position
-    }))
-  );
+  const createVenueMarker = useCallback((
+    maplibregl: typeof import('maplibre-gl').default,
+    venue: Venue,
+    mapInstance: Map
+  ) => {
+    const el = document.createElement('div');
+    el.className = 'custom-marker';
+    el.style.width = '40px';
+    el.style.height = '40px';
+    el.style.cursor = 'pointer';
+    el.style.position = 'absolute';
+    el.style.left = '0';
+    el.style.top = '0';
+    el.style.transform = 'none';
+    el.style.margin = '0';
+    el.style.padding = '0';
+    el.innerHTML = `
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="#ED2800"
+        stroke="white"
+        stroke-width="2"
+        style="width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));"
+      >
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+        <circle cx="12" cy="10" r="3" fill="white"></circle>
+      </svg>
+    `;
+
+    const marker = new maplibregl.Marker({
+      element: el,
+      anchor: 'bottom',
+      offset: [0, 0],
+    })
+      .setLngLat([venue.position.lng, venue.position.lat])
+      .addTo(mapInstance);
+
+    el.addEventListener('click', () => {
+      setSelectedVenue(venue);
+      setSelectedVenueId(venue.name);
+      onVenueClick(venue.name);
+    });
+
+    return marker;
+  }, [onVenueClick]);
 
   useEffect(() => {
-    if (!mapContainer.current || map.current) return;
+    const container = mapContainer.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoadMap(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!shouldLoadMap || !mapContainer.current || map.current) return;
 
     let isMounted = true;
 
-    try {
-      // Initialize map
-      const mapInstance = new maplibregl.Map({
-        container: mapContainer.current,
-        style: 'https://tiles.stadiamaps.com/styles/stamen_toner.json',
-        center: [11.341471746454317, 46.49041070203111],
-        zoom: 13,
-      });
+    const initMap = async () => {
+      try {
+        const [maplibregl] = await Promise.all([
+          import('maplibre-gl').then((module) => module.default),
+          import('maplibre-gl/dist/maplibre-gl.css'),
+        ]);
 
-      map.current = mapInstance;
+        if (!isMounted || !mapContainer.current) return;
 
-      // Add navigation controls
-      mapInstance.addControl(new maplibregl.NavigationControl());
-
-      // Wait for map to load
-      mapInstance.on('load', () => {
-        if (!isMounted) return;
-        setMapLoaded(true);
-
-        // Add markers
-        venues.forEach((venue) => {
-          if (!map.current) return;
-
-          // Create custom marker element
-          const el = document.createElement('div');
-          el.className = 'custom-marker';
-          el.style.width = '40px';
-          el.style.height = '40px';
-          el.style.cursor = 'pointer';
-          el.style.position = 'absolute';
-          el.style.left = '0';
-          el.style.top = '0';
-          el.style.transform = 'none';
-          el.style.margin = '0';
-          el.style.padding = '0';
-          el.innerHTML = `
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="#ED2800"
-              stroke="white"
-              stroke-width="2"
-              style="width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));"
-            >
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-              <circle cx="12" cy="10" r="3" fill="white"></circle>
-            </svg>
-          `;
-
-          const marker = new maplibregl.Marker({ 
-            element: el,
-            anchor: 'bottom',
-            offset: [0, 0]
-          })
-            .setLngLat([venue.position.lng, venue.position.lat])
-            .addTo(mapInstance);
-
-          el.addEventListener('click', () => {
-            if (isMounted) {
-              setSelectedVenue(venue);
-              onVenueClick(venue.name);
-            }
-          });
-
-          markers.current.push(marker);
+        maplibreRef.current = maplibregl;
+        const mapInstance = new maplibregl.Map({
+          container: mapContainer.current,
+          style: 'https://tiles.stadiamaps.com/styles/stamen_toner.json',
+          center: [11.341471746454317, 46.49041070203111],
+          zoom: 13,
         });
-      });
 
-      // Handle errors
-      mapInstance.on('error', (e) => {
-        // Only show critical errors, ignore sprite/style loading issues
-        if (e.error && !e.error.message?.includes('sprite') && !e.error.message?.includes('glyphs')) {
-          console.warn('Map error:', e.error);
+        map.current = mapInstance;
+        mapInstance.addControl(new maplibregl.NavigationControl());
+
+        mapInstance.on('load', () => {
+          if (!isMounted) return;
+          setMapLoaded(true);
+        });
+
+        mapInstance.on('error', (e: MapLibreEvent) => {
+          if (e.error && !e.error.message?.includes('sprite') && !e.error.message?.includes('glyphs')) {
+            console.warn('Map error:', e.error);
+          }
+        });
+      } catch (error) {
+        console.error('Failed to initialize map:', error);
+        if (isMounted) {
+          setMapError(true);
         }
-      });
+      }
+    };
 
-    } catch (error) {
-      console.error('Failed to initialize map:', error);
-      setMapError(true);
-    }
+    initMap();
 
     return () => {
       isMounted = false;
-      markers.current.forEach(marker => {
+      markers.current.forEach((marker) => {
         try {
           marker.remove();
-        } catch (e) {
+        } catch {
           // Ignore cleanup errors
         }
       });
@@ -188,76 +217,32 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
       if (map.current) {
         try {
           map.current.remove();
-        } catch (e) {
+        } catch {
           // Ignore cleanup errors
         }
         map.current = null;
       }
     };
-  }, []);
+  }, [shouldLoadMap]);
 
   // Add markers when venues change
   useEffect(() => {
-    if (!map.current || !mapLoaded) return;
+    const maplibregl = maplibreRef.current;
+    if (!map.current || !mapLoaded || !maplibregl) return;
 
-    // Clear existing markers
-    markers.current.forEach(marker => marker.remove());
+    markers.current.forEach((marker) => marker.remove());
     markers.current = [];
 
-    // Add new markers
     venues.forEach((venue) => {
       if (!map.current) return;
-
-      const el = document.createElement('div');
-      el.className = 'custom-marker';
-      el.style.width = '40px';
-      el.style.height = '40px';
-      el.style.cursor = 'pointer';
-      el.style.position = 'absolute';
-      el.style.left = '0';
-      el.style.top = '0';
-      el.style.transform = 'none';
-      el.style.margin = '0';
-      el.style.padding = '0';
-      el.innerHTML = `
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="#ED2800"
-          stroke="white"
-          stroke-width="2"
-          style="width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));"
-        >
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-          <circle cx="12" cy="10" r="3" fill="white"></circle>
-        </svg>
-      `;
-
-      const marker = new maplibregl.Marker({ 
-        element: el,
-        anchor: 'bottom',
-        offset: [0, 0]
-      })
-        .setLngLat([venue.position.lng, venue.position.lat])
-        .addTo(map.current);
-
-      el.addEventListener('click', () => {
-        setSelectedVenue(venue);
-        onVenueClick(venue.name);
-      });
-
-      markers.current.push(marker);
+      markers.current.push(createVenueMarker(maplibregl, venue, map.current));
     });
-  }, [venues, onVenueClick, mapLoaded]);
+  }, [venues, mapLoaded, createVenueMarker]);
 
-  // Handle event selection from dropdown
-  const handleEventSelect = (eventId: string) => {
-    const eventWithVenue = allEvents.find(e => e.id === eventId);
-    if (!eventWithVenue || !map.current) return;
-
-    // Find the venue that contains this event
-    const venue = venues.find(v => v.events?.some(e => e.id === eventId));
-    if (!venue) return;
+  // Handle venue selection from dropdown
+  const handleVenueSelect = (venueName: string) => {
+    const venue = venues.find(v => v.name === venueName);
+    if (!venue || !map.current) return;
 
     // Center map on venue position
     map.current.flyTo({
@@ -267,21 +252,23 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
       essential: true
     });
 
-    // Open venue panel (not the event modal directly)
+    // Open venue panel
     setSelectedVenue(venue);
+    setSelectedVenueId(venue.name);
     setSelectedEvent(null);
     setSelectedGalleryIndex(0);
     setSelectedEventId('');
+    onVenueClick(venue.name);
   };
 
   return (
     <div className="relative mx-auto rounded-2xl overflow-hidden border-2 border-[#2E1510] mb-8" style={{ width: '70%', maxWidth: '70%', height: '600px', minHeight: '600px' }}>
-      {/* Event Dropdown - positioned on the right */}
+      {/* Venue Dropdown - positioned on the right */}
       {!selectedEvent && (
         <div className="absolute top-4 right-4" style={{ zIndex: 50 }}>
           <Select 
-            value={selectedEventId} 
-            onValueChange={handleEventSelect}
+            value={selectedVenueId} 
+            onValueChange={handleVenueSelect}
             onOpenChange={(open) => {
               // Close venue panel when dropdown opens
               if (open) {
@@ -291,14 +278,14 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
             }}
           >
             <SelectTrigger className="w-[250px] bg-white/95 backdrop-blur-sm border-2 border-[#2E1510] text-[#2E1510] hover:bg-white">
-              <SelectValue placeholder="Select an event..." />
+              <SelectValue placeholder="Select a venue..." />
             </SelectTrigger>
             <SelectContent className="max-h-[400px] overflow-y-auto" style={{ zIndex: 50 }}>
-            {allEvents.map((event) => (
-              <SelectItem key={event.id} value={event.id}>
+            {venues.map((venue) => (
+              <SelectItem key={venue.name} value={venue.name}>
                 <div className="flex flex-col">
-                  <span className="font-medium">{event.title}</span>
-                  <span className="text-xs text-gray-500">{event.venueName} - {event.date}</span>
+                  <span className="font-medium">{venue.name}</span>
+                  <span className="text-xs text-gray-500">{venue.eventCount} {venue.eventCount === 1 ? 'event' : 'events'}</span>
                 </div>
               </SelectItem>
             ))}
@@ -339,7 +326,10 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
             className="absolute bottom-4 left-4 right-4 bg-[#FCD478] rounded-xl p-4 shadow-2xl z-[1000] max-h-[80%] overflow-y-auto"
           >
             <button
-              onClick={() => setSelectedVenue(null)}
+              onClick={() => {
+                setSelectedVenue(null);
+                setSelectedVenueId('');
+              }}
               className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#2E1510] text-white flex items-center justify-center hover:bg-[#ED2800] transition-colors"
             >
               <X className="w-4 h-4" />
@@ -398,7 +388,13 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#220b04]/95 backdrop-blur-md"
+            className="fixed inset-0 z-[100] flex bg-[#220b04]/95 backdrop-blur-md"
+            style={{
+              alignItems: windowWidth < 768 ? 'flex-start' : 'center',
+              justifyContent: 'center',
+              padding: windowWidth < 768 ? '0.5rem' : '1rem',
+              paddingTop: windowWidth < 768 ? '4rem' : '1rem'
+            }}
             onClick={() => {
               setSelectedEvent(null);
               setSelectedGalleryIndex(0);
@@ -410,7 +406,13 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-[#FCD478] rounded-3xl shadow-2xl"
+              className="relative w-full overflow-y-auto bg-[#FCD478] shadow-2xl"
+              style={{
+                maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '95%' : '80rem',
+                maxHeight: windowWidth < 768 ? 'calc(95vh - 4rem)' : '90vh',
+                borderRadius: windowWidth < 768 ? '1rem' : '1.5rem',
+                marginTop: windowWidth < 768 ? '0' : '0'
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -419,19 +421,29 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
                   setSelectedGalleryIndex(0);
                   setSelectedEventId('');
                 }}
-                className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full bg-[#2E1510] text-white flex items-center justify-center hover:bg-[#ED2800] transition-colors"
+                className="absolute z-10 rounded-full bg-[#2E1510] text-white flex items-center justify-center hover:bg-[#ED2800] transition-colors"
+                style={{
+                  top: windowWidth < 768 ? '0.75rem' : '1.5rem',
+                  right: windowWidth < 768 ? '0.75rem' : '1.5rem',
+                  width: windowWidth < 768 ? '2rem' : '3rem',
+                  height: windowWidth < 768 ? '2rem' : '3rem'
+                }}
                 aria-label="Close modal"
               >
-                <X className="w-6 h-6" />
+                <X style={{ width: windowWidth < 768 ? '1rem' : '1.5rem', height: windowWidth < 768 ? '1rem' : '1.5rem' }} />
               </button>
 
-              <div className="p-8 md:p-12">
-                {/* Poster container - 650px max width */}
+              <div style={{
+                padding: windowWidth < 640 ? '1rem' : windowWidth < 768 ? '1.5rem' : windowWidth < 1024 ? '2rem' : '3rem'
+              }}>
+                {/* Poster container */}
                 <div 
-                  className="relative mx-auto rounded-2xl overflow-hidden mb-8 shadow-xl bg-[#2E1510]/20 transition-all duration-300 ease-out cursor-pointer" 
+                  className="relative mx-auto rounded-xl overflow-hidden shadow-xl bg-[#2E1510]/20 transition-all duration-300 ease-out cursor-pointer" 
                   style={{ 
-                    maxWidth: '650px', 
-                    width: 'fit-content'
+                    maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '100%' : '650px',
+                    width: 'fit-content',
+                    marginBottom: windowWidth < 768 ? '1.5rem' : '2rem',
+                    borderRadius: windowWidth < 768 ? '0.75rem' : '1rem'
                   }}
                   onClick={() => setFullScreenImage(selectedEvent.poster)}
                 >
@@ -440,8 +452,8 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
                     alt={selectedEvent.title}
                     className="object-contain block"
                     style={{ 
-                      maxWidth: '650px',
-                      maxHeight: '650px',
+                      maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '100%' : '650px',
+                      maxHeight: windowWidth < 640 ? '300px' : windowWidth < 768 ? '400px' : '650px',
                       width: 'auto',
                       height: 'auto',
                       display: 'block',
@@ -450,54 +462,73 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
                   />
                 </div>
 
-                <div className="mb-8">
-                  <div className="flex flex-wrap gap-2 mb-4">
+                <div style={{ marginBottom: windowWidth < 768 ? '1.5rem' : '2rem' }}>
+                  <div className="flex flex-wrap gap-2" style={{ marginBottom: windowWidth < 768 ? '1rem' : '1.5rem' }}>
                     {selectedEvent.genre.map(g => (
-                      <Badge key={g} className="bg-[#ED2800] text-white border-0">{g}</Badge>
+                      <Badge key={g} className="bg-[#ED2800] text-white border-0" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem' }}>{g}</Badge>
                     ))}
                   </div>
                   
-                  <h2 className="text-5xl md:text-6xl text-[#2E1510] mb-4 lowercase">
+                  <h2 className="text-[#2E1510] lowercase"
+                      style={{
+                        fontSize: windowWidth < 640 ? '1.75rem' : windowWidth < 768 ? '2.25rem' : windowWidth < 1024 ? '3rem' : '3.75rem',
+                        marginBottom: windowWidth < 768 ? '1rem' : '1.5rem',
+                        lineHeight: '1.2'
+                      }}>
                     {selectedEvent.title}
                   </h2>
                   
-                  <div className="flex flex-wrap gap-6 mb-6">
+                  <div className="flex flex-wrap" style={{ gap: windowWidth < 640 ? '1rem' : windowWidth < 768 ? '1.5rem' : '1.5rem', marginBottom: windowWidth < 768 ? '1rem' : '1.5rem' }}>
                     <div>
-                      <p className="text-sm text-[#2E1510]/60 uppercase tracking-wide mb-1">Date</p>
-                      <p className="text-xl text-[#2E1510]">{selectedEvent.date}</p>
+                      <p className="text-[#2E1510]/60 uppercase tracking-wide" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem', marginBottom: '0.25rem' }}>Date</p>
+                      <p className="text-[#2E1510]" style={{ fontSize: windowWidth < 768 ? '1rem' : '1.25rem' }}>{selectedEvent.date}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-[#2E1510]/60 uppercase tracking-wide mb-1">Sets</p>
-                      <p className="text-xl text-[#2E1510]">{countDJs(selectedEvent.djs)} DJ Sets</p>
+                      <p className="text-[#2E1510]/60 uppercase tracking-wide" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem', marginBottom: '0.25rem' }}>Sets</p>
+                      <p className="text-[#2E1510]" style={{ fontSize: windowWidth < 768 ? '1rem' : '1.25rem' }}>{countDJs(selectedEvent.djs)} DJ Sets</p>
                     </div>
                   </div>
                   
-                  <p className="text-lg text-[#2E1510]/80 leading-relaxed max-w-3xl mb-6">
+                  <p className="text-[#2E1510]/80 leading-relaxed max-w-3xl"
+                     style={{
+                       fontSize: windowWidth < 640 ? '0.875rem' : windowWidth < 768 ? '1rem' : '1.125rem',
+                       marginBottom: windowWidth < 768 ? '1rem' : '1.5rem'
+                     }}>
                     {selectedEvent.description}
                   </p>
 
                   <div>
-                    <p className="text-sm text-[#2E1510]/60 uppercase tracking-wide mb-3">Featured Artists</p>
+                    <p className="text-[#2E1510]/60 uppercase tracking-wide" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem', marginBottom: windowWidth < 768 ? '0.75rem' : '1rem' }}>Featured Artists</p>
                     <div className="flex flex-wrap gap-2">
                       {selectedEvent.djs.map(dj => (
-                        <Badge key={dj} className="bg-[#2E1510] text-white border-0">{dj}</Badge>
+                        <Badge key={dj} className="bg-[#2E1510] text-white border-0" style={{ fontSize: windowWidth < 768 ? '0.75rem' : '0.875rem' }}>{dj}</Badge>
                       ))}
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="text-2xl text-[#2E1510] mb-4 lowercase">photo gallery</h3>
+                  <h3 className="text-[#2E1510] lowercase"
+                      style={{
+                        fontSize: windowWidth < 640 ? '1.25rem' : windowWidth < 768 ? '1.5rem' : '1.5rem',
+                        marginBottom: windowWidth < 768 ? '1rem' : '1.5rem'
+                      }}>photo gallery</h3>
                   
-                  {/* Gallery container - 650px max width */}
-                  <div className="relative mx-auto rounded-xl overflow-hidden mb-4 shadow-lg bg-[#2E1510]/20" style={{ maxWidth: '650px', width: 'fit-content' }}>
+                  {/* Gallery container */}
+                  <div className="relative mx-auto rounded-lg overflow-hidden shadow-lg bg-[#2E1510]/20"
+                       style={{
+                         maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '100%' : '650px',
+                         width: 'fit-content',
+                         marginBottom: windowWidth < 768 ? '1rem' : '1.5rem',
+                         borderRadius: windowWidth < 768 ? '0.5rem' : '0.75rem'
+                       }}>
                     <ImageWithFallback
                       src={selectedEvent.gallery[selectedGalleryIndex]}
                       alt={`${selectedEvent.title} gallery ${selectedGalleryIndex + 1}`}
                       className="object-contain block"
                       style={{ 
-                        maxWidth: '650px',
-                        maxHeight: '650px',
+                        maxWidth: windowWidth < 640 ? '100%' : windowWidth < 768 ? '100%' : '650px',
+                        maxHeight: windowWidth < 640 ? '300px' : windowWidth < 768 ? '400px' : '650px',
                         width: 'auto',
                         height: 'auto',
                         display: 'block'
@@ -510,32 +541,49 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
                           onClick={() => setSelectedGalleryIndex((prev) => 
                             prev === 0 ? selectedEvent.gallery.length - 1 : prev - 1
                           )}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors"
+                          className="absolute top-1/2 -translate-y-1/2 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors z-10"
+                          style={{
+                            left: windowWidth < 768 ? '0.5rem' : '1rem',
+                            width: windowWidth < 768 ? '2rem' : '2.5rem',
+                            height: windowWidth < 768 ? '2rem' : '2.5rem'
+                          }}
                         >
-                          <ChevronLeft className="w-5 h-5" />
+                          <ChevronLeft style={{ width: windowWidth < 768 ? '1rem' : '1.25rem', height: windowWidth < 768 ? '1rem' : '1.25rem' }} />
                         </button>
                         <button
                           onClick={() => setSelectedGalleryIndex((prev) => 
                             prev === selectedEvent.gallery.length - 1 ? 0 : prev + 1
                           )}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors"
+                          className="absolute top-1/2 -translate-y-1/2 rounded-full bg-[#2E1510]/80 text-white flex items-center justify-center hover:bg-[#2E1510] transition-colors z-10"
+                          style={{
+                            right: windowWidth < 768 ? '0.5rem' : '1rem',
+                            width: windowWidth < 768 ? '2rem' : '2.5rem',
+                            height: windowWidth < 768 ? '2rem' : '2.5rem'
+                          }}
                         >
-                          <ChevronRight className="w-5 h-5" />
+                          <ChevronRight style={{ width: windowWidth < 768 ? '1rem' : '1.25rem', height: windowWidth < 768 ? '1rem' : '1.25rem' }} />
                         </button>
                       </>
                     )}
                   </div>
 
-                  <div className="flex gap-3 overflow-x-auto pb-2">
+                  <div className="flex overflow-x-auto pb-2"
+                       style={{
+                         gap: windowWidth < 768 ? '0.5rem' : '0.75rem'
+                       }}>
                     {selectedEvent.gallery.map((img, idx) => (
                       <button
                         key={idx}
                         onClick={() => setSelectedGalleryIndex(idx)}
-                        className={`flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 transition-all ${
+                        className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
                           idx === selectedGalleryIndex
                             ? 'border-[#ED2800] scale-105'
                             : 'border-[#2E1510]/30 hover:border-[#2E1510]'
                         }`}
+                        style={{
+                          width: windowWidth < 640 ? '3.5rem' : windowWidth < 768 ? '4rem' : '6rem',
+                          height: windowWidth < 640 ? '3.5rem' : windowWidth < 768 ? '4rem' : '6rem'
+                        }}
                       >
                         <ImageWithFallback
                           src={img}
@@ -559,28 +607,44 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/95 backdrop-blur-md p-4"
-            style={{ zIndex: 99999 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/95 backdrop-blur-md"
+            style={{ 
+              zIndex: 99999,
+              padding: windowWidth < 768 ? '0.5rem' : '1rem'
+            }}
             onClick={() => setFullScreenImage(null)}
           >
             <button
               onClick={() => setFullScreenImage(null)}
-              className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors"
+              className="absolute z-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors"
+              style={{
+                top: windowWidth < 768 ? '0.75rem' : '1.5rem',
+                right: windowWidth < 768 ? '0.75rem' : '1.5rem',
+                width: windowWidth < 768 ? '2rem' : '3rem',
+                height: windowWidth < 768 ? '2rem' : '3rem'
+              }}
               aria-label="Close full screen"
             >
-              <X className="w-6 h-6" />
+              <X style={{ width: windowWidth < 768 ? '1rem' : '1.5rem', height: windowWidth < 768 ? '1rem' : '1.5rem' }} />
             </button>
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="max-w-[90vw] max-h-[90vh]"
+              style={{
+                maxWidth: windowWidth < 768 ? '95vw' : '90vw',
+                maxHeight: windowWidth < 768 ? '95vh' : '90vh'
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               {fullScreenImage.toLowerCase().endsWith('.mp4') || fullScreenImage.toLowerCase().endsWith('.webm') || fullScreenImage.toLowerCase().endsWith('.mov') ? (
                 <video
                   src={fullScreenImage}
-                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                  className="object-contain rounded-lg"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: windowWidth < 768 ? '95vh' : '90vh'
+                  }}
                   autoPlay
                   loop
                   muted
@@ -591,7 +655,11 @@ export function VenueMap({ venues, onVenueClick, resetTrigger, closeOnCarouselVi
                 <img
                   src={fullScreenImage}
                   alt="Full screen"
-                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                  className="object-contain rounded-lg"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: windowWidth < 768 ? '95vh' : '90vh'
+                  }}
                 />
               )}
             </motion.div>

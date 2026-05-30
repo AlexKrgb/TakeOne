@@ -1,0 +1,235 @@
+/* Stitch "let's connect" section — explicit CSS (not Tailwind config tokens) */
+
+.contact-stitch-section {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #220b04;
+  color: #ffdbcf;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.contact-stitch-section.ambient-texture {
+  background-image: radial-gradient(circle at 50% 50%, rgba(252, 212, 120, 0.03) 0%, transparent 60%);
+}
+
+.contact-stitch-section.ambient-texture::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-radial-gradient(
+    circle at center,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(255, 255, 255, 0.01) 3px,
+    rgba(255, 255, 255, 0.01) 4px
+  );
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.contact-stitch-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rem 24px 80px;
+}
+
+@media (min-width: 768px) {
+  .contact-stitch-main {
+    padding-left: 64px;
+    padding-right: 64px;
+  }
+}
+
+.contact-stitch-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.contact-stitch-title {
+  font-family: Montserrat, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  font-size: 48px;
+  color: #fcd478;
+  text-transform: lowercase;
+  text-align: center;
+  margin: 0 0 4rem;
+}
+
+@media (min-width: 768px) {
+  .contact-stitch-title {
+    font-size: 80px;
+  }
+}
+
+.contact-stitch-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  width: 100%;
+  max-width: 1152px;
+}
+
+@media (min-width: 768px) {
+  .contact-stitch-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.contact-stitch-glass-card {
+  background: rgba(46, 21, 16, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #fcd478;
+  border-radius: 0.75rem;
+  padding: 2rem;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.contact-stitch-glass-card:hover {
+  box-shadow: 0 0 20px rgba(252, 212, 120, 0.15);
+  transform: translateY(-4px);
+}
+
+.contact-stitch-card-heading {
+  font-family: Montserrat, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 32px;
+  line-height: 1.2;
+  color: #ffdbcf;
+  margin: 0 0 1rem;
+}
+
+.contact-stitch-card-body {
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: #d0c5b2;
+  margin: 0 0 2rem;
+}
+
+.contact-stitch-email-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ed2800;
+  border: 1px solid #ed2800;
+  border-radius: 0.25rem;
+  padding: 0.75rem 2rem;
+  text-decoration: none;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.contact-stitch-email-btn:hover {
+  background-color: #ed2800;
+  color: #240d05;
+}
+
+.contact-stitch-email-btn-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.25rem;
+  box-shadow: 0 0 15px rgba(237, 40, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.contact-stitch-email-btn:hover .contact-stitch-email-btn-glow {
+  opacity: 1;
+}
+
+.contact-stitch-social-row {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.contact-stitch-social-btn {
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(252, 212, 120, 0.3);
+  border-radius: 0.25rem;
+  color: #fcd478;
+  background: rgba(36, 13, 5, 0.5);
+  text-decoration: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.contact-stitch-social-btn:hover {
+  border-color: #fcd478;
+  box-shadow: 0 0 15px rgba(252, 212, 120, 0.3);
+}
+
+.contact-stitch-social-btn .material-symbols-outlined {
+  font-size: 1.5rem;
+}
+
+.contact-stitch-tagline {
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+  color: #fff4e3;
+  text-align: center;
+  margin: 4rem 0 0;
+}
+
+@keyframes contact-stitch-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.contact-stitch-animate {
+  opacity: 0;
+  animation: contact-stitch-fade-in-up 600ms ease-out forwards;
+}
+
+.contact-stitch-delay-100 { animation-delay: 100ms; }
+.contact-stitch-delay-200 { animation-delay: 200ms; }
+.contact-stitch-delay-300 { animation-delay: 300ms; }
+.contact-stitch-delay-400 { animation-delay: 400ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-stitch-animate {
+    opacity: 1;
+    animation: none;
+  }
+
+  .contact-stitch-glass-card:hover {
+    transform: none;
+  }
+}

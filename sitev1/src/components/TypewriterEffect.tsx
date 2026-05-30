@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
 
 interface TypewriterEffectProps {
   fixedText: string;
@@ -64,16 +63,34 @@ export function TypewriterEffect({
     return () => clearTimeout(timeout);
   }, [displayText, isDeleting, currentIndex, texts, typingSpeed, deletingSpeed, pauseDuration, onProgressChange]);
 
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1920);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="flex items-center justify-center">
-      <span className="text-6xl md:text-8xl tracking-tight text-white">
+      <span className="typewriter-text tracking-tight text-white"
+            style={{
+              fontSize: windowWidth < 640 ? '1.875rem' : windowWidth < 768 ? '2.25rem' : windowWidth < 1024 ? '3rem' : windowWidth < 1280 ? '3.75rem' : '6rem',
+              paddingLeft: '1rem',
+              paddingRight: '1rem'
+            }}>
         {fixedText}{' '}
         <span className="text-[#ED2800]">{displayText}</span>
       </span>
-      <motion.span
-        animate={{ opacity: [1, 0] }}
-        transition={{ duration: 0.8, repeat: Infinity }}
-        className="inline-block w-1 h-16 md:h-24 bg-[#ED2800] ml-2"
+      <span
+        className="typewriter-cursor inline-block bg-[#ED2800] typewriter-cursor-blink"
+        style={{
+          width: windowWidth < 768 ? '2px' : '4px',
+          height: windowWidth < 640 ? '2rem' : windowWidth < 768 ? '3rem' : windowWidth < 1024 ? '4rem' : windowWidth < 1280 ? '6rem' : '6rem',
+          marginLeft: windowWidth < 768 ? '0.25rem' : '0.5rem'
+        }}
       />
     </div>
   );

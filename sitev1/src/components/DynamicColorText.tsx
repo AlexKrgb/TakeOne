@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface DynamicColorTextProps {
   text: string;
@@ -18,8 +17,10 @@ export function DynamicColorText({
 }: DynamicColorTextProps) {
   const textRef = useRef<HTMLDivElement>(null);
   const [charOverlaps, setCharOverlaps] = useState<boolean[]>([]);
+  const overlapsRef = useRef<boolean[]>([]);
+  const rafRef = useRef<number>();
 
-  const checkOverlap = () => {
+  const checkOverlap = useCallback(() => {
     if (!textRef.current || !imageRef.current) return;
 
     const imageRect = imageRef.current.getBoundingClientRect();
@@ -27,8 +28,6 @@ export function DynamicColorText({
     
     const overlaps = Array.from(chars).map((char) => {
       const charRect = char.getBoundingClientRect();
-      
-      // Check if character overlaps with image
       return !(
         charRect.right < imageRect.left ||
         charRect.left > imageRect.right ||
@@ -37,40 +36,40 @@ export function DynamicColorText({
       );
     });
 
-    setCharOverlaps(overlaps);
-  };
+    const prev = overlapsRef.current;
+    const changed =
+      overlaps.length !== prev.length ||
+      overlaps.some((value, index) => value !== prev[index]);
 
-  useEffect(() => {
-    // Initial check
-    checkOverlap();
-
-    // Check on scroll and resize
-    const handleUpdate = () => {
-      requestAnimationFrame(checkOverlap);
-    };
-
-    window.addEventListener('scroll', handleUpdate);
-    window.addEventListener('resize', handleUpdate);
-
-    // Set up a MutationObserver to detect when elements are mounted
-    const observer = new MutationObserver(handleUpdate);
-    if (textRef.current) {
-      observer.observe(textRef.current, { childList: true, subtree: true });
+    if (changed) {
+      overlapsRef.current = overlaps;
+      setCharOverlaps(overlaps);
     }
-
-    // Also check periodically for the first few seconds to catch animations
-    const interval = setInterval(checkOverlap, 100);
-    setTimeout(() => clearInterval(interval), 3000);
-
-    return () => {
-      window.removeEventListener('scroll', handleUpdate);
-      window.removeEventListener('resize', handleUpdate);
-      observer.disconnect();
-      clearInterval(interval);
-    };
   }, [imageRef]);
 
-  // Split text into lines and characters
+  useEffect(() => {
+    const scheduleCheck = () => {
+      if (rafRef.current === undefined) {
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = undefined;
+          checkOverlap();
+        });
+      }
+    };
+
+    checkOverlap();
+    window.addEventListener('scroll', scheduleCheck, { passive: true });
+    window.addEventListener('resize', scheduleCheck, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', scheduleCheck);
+      window.removeEventListener('resize', scheduleCheck);
+      if (rafRef.current !== undefined) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, [checkOverlap]);
+
   const lines = text.split('\n');
   let charIndex = 0;
 
@@ -82,6 +81,7 @@ export function DynamicColorText({
             const currentCharIndex = charIndex++;
             const isOverlapping = charOverlaps[currentCharIndex];
             
+            const displayChar = char === ' ' ? '\u00A0' : char;
             return (
               <span
                 key={`${lineIndex}-${i}`}
@@ -90,7 +90,7 @@ export function DynamicColorText({
                   color: isOverlapping ? overlapColor : defaultColor
                 }}
               >
-                {char}
+                {displayChar}
               </span>
             );
           })}

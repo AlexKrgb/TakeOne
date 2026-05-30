@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/wiki-session-start.sh",
+        "timeout": 15
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/wiki-log-edit.sh",
+        "timeout": 5
+      }
+    ]
+  }
+}
