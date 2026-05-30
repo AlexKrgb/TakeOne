@@ -1,11 +1,15 @@
+# TakeOne Collective — Website
 
-  # New Version
+This directory contains the TakeOne Collective website source code.
 
-  This is a code bundle for New Version. The original project is available at https://www.figma.com/design/iGxLffj0nOY2HfAeo0gexw/New-Version.
+**Full documentation:** see the [repository README](../README.md) for architecture, setup, deployment, and contributor guides.
 
-  ## Running the code
+## Quick start
 
-  Run `npm i` to install the dependencies.
+```bash
+npm ci
+npm run dev    # http://localhost:3000
+npm run build  # outputs to dist/
+```
 
-  Run `npm run dev` to start the development server.
-  
+**Live site:** [takeone-collective.it](https://takeone-collective.it)
