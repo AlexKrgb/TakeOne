@@ -1,0 +1,59 @@
+---
+description: REQUIRED every chat — LLM Wiki read at start, session note at end (TakeOneBrain)
+alwaysApply: true
+---
+
+# LLM Wiki ↔ TakeOne (TakeOneBrain)
+
+Wiki project: `~/Desktop/Brain/TakeOneBrain` (separate from this git repo).  
+Project ID: `d878c348-4e81-4259-90e5-6fd21404f59f`
+
+## Start of every turn — read wiki
+
+Before planning or editing:
+
+```bash
+bash .cursor/scripts/fetch-llm-wiki-context.sh "<short paraphrase of user request>"
+```
+
+If output says **skipped**, mention once, then continue. Cite wiki paths when using hits (`wiki/...`, `raw/sources/...`).
+
+## End of every turn — write wiki (mandatory)
+
+After **every** user prompt in this project — including Q&A, reviews, and small edits — append a session note so TakeOneBrain stays current:
+
+```bash
+bash .cursor/scripts/append-llm-wiki-session.sh --topic <website|components|events|deployment|architecture|general> <<'EOF'
+## User request
+(one line)
+
+## What we did / answered
+(bullets — include conclusions even if no files changed)
+
+## Files / areas
+(key paths, or "none")
+
+## Decisions / follow-ups
+(if any)
+EOF
+```
+
+Pick `--topic` from the main area touched. The script saves under `raw/sources/cursor-sessions/` and triggers LLM Wiki **rescan** when `LLM_WIKI_API_TOKEN` is set and the app is running.
+
+Tell the user the wiki path printed (`LLM_WIKI_APPEND_OK: ...`) in one short line.
+
+`afterFileEdit` hook adds **Files touched** automatically from `.cursor/wiki-edits-buffer.log`.
+
+## Do not
+
+- Log or echo `LLM_WIKI_API_TOKEN`.
+- Put secrets in wiki notes.
+- Skip the append step at end of turn.
+
+## Setup
+
+```bash
+export LLM_WIKI_API_TOKEN="…"   # LLM Wiki → Settings → API Server
+```
+
+Add to `~/.zshrc`. Keep LLM Wiki desktop app open. Open **TakeOneBrain** in LLM Wiki (or rely on hardcoded project ID in scripts).
